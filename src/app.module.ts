@@ -28,6 +28,8 @@ import { DniTypeModule } from './dni-type/dni-type.module';
         database: configService.get('DB_NAME'),
         autoLoadEntities: true,
         synchronize: false,
+        ssl: true,
+        extra: { ssl: { rejectUnauthorized: false } },
       }),
     }),
 
