@@ -23,7 +23,7 @@
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/data-source.ts"
   },
   "dependencies": {
-    "@apollo/server": "^4.11.0",
+    "@apollo/server": "^5.4.0",
     "@nestjs/apollo": "^13.2.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",
