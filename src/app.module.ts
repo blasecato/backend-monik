@@ -35,7 +35,7 @@ import { DniTypeModule } from './dni-type/dni-type.module';
 
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+      autoSchemaFile: process.env.VERCEL === '1' ? true : join(process.cwd(), 'src/schema.gql'),
       introspection: true,
     }),
 
