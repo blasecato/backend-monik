@@ -11,14 +11,29 @@ async function bootstrap() {
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ extended: true, limit: '10mb' }));
 
-  app.enableCors({
-    origin: true,
-    credentials: true,
+  const expressApp = app.getHttpAdapter().getInstance();
+
+  // 🔥 CORS MANUAL (esto arregla tu error)
+  expressApp.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*'); // 👈 en producción cambia esto
+    res.setHeader(
+      'Access-Control-Allow-Methods',
+      'GET,POST,PUT,PATCH,DELETE,OPTIONS'
+    );
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization'
+    );
+
+    // 👇 manejar preflight (CLAVE)
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+
+    next();
   });
 
   await app.init();
-
-  const expressApp = app.getHttpAdapter().getInstance();
 
   return serverlessExpress({
     app: expressApp,
