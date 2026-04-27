@@ -43,6 +43,23 @@ export class OrderService {
     return order;
   }
 
+  async findOneDetail(id: number): Promise<Order> {
+    const order = await this.orderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.person', 'person')
+      .leftJoinAndSelect('person.role', 'role')
+      .leftJoinAndSelect('person.dniType', 'dniType')
+      .leftJoinAndSelect('order.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.inventory', 'inventory')
+      .leftJoinAndSelect('product.nutritionalTable', 'nutritionalTable')
+      .where('order.id = :id', { id })
+      .getOne();
+    if (!order) throw new NotFoundException(`Orden #${id} no encontrada`);
+    return order;
+  }
+
   async create(input: CreateOrderInput): Promise<Order> {
     if (!input.items.length) {
       throw new BadRequestException('La orden debe tener al menos un producto');

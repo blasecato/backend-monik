@@ -137,6 +137,7 @@ type Query {
   inventoryMovement(id: ID!): InventoryMovement!
   orders: [Order!]!
   order(id: ID!): Order!
+  orderDetail(id: ID!): Order!
   roles: [Role!]!
   dniTypes: [DniType!]!
 }

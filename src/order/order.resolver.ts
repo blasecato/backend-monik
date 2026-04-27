@@ -17,6 +17,11 @@ export class OrderResolver {
     return this.orderService.findOne(id);
   }
 
+  @Query(() => Order, { name: 'orderDetail' })
+  findOneDetail(@Args('id', { type: () => ID }) id: number): Promise<Order> {
+    return this.orderService.findOneDetail(id);
+  }
+
   @Mutation(() => Order)
   createOrder(@Args('input') input: CreateOrderInput): Promise<Order> {
     return this.orderService.create(input);

@@ -57,11 +57,10 @@ export class PersonService {
       person.dniType = dniType;
     }
 
-    if (input.roleId) {
-      const role = await this.roleRepository.findOne({ where: { id: input.roleId } });
-      if (!role) throw new NotFoundException(`Rol #${input.roleId} no encontrado`);
-      person.role = role;
-    }
+    const roleId = input.roleId ?? 2;
+    const role = await this.roleRepository.findOne({ where: { id: roleId } });
+    if (!role) throw new NotFoundException(`Rol #${roleId} no encontrado`);
+    person.role = role;
 
     const saved = await this.personRepository.save(person);
     return this.findOne(saved.id);
