@@ -28,7 +28,7 @@ import { DniTypeModule } from './dni-type/dni-type.module';
         database: configService.get('DB_NAME'),
         autoLoadEntities: true,
         synchronize: false,
-        ...(process.env.VERCEL === '1' && {
+        ...(process.env.NODE_ENV === 'production' && {
           ssl: true,
           extra: { ssl: { rejectUnauthorized: false } },
         }),
