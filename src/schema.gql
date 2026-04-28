@@ -120,6 +120,7 @@ type Order {
   deliveryDate: DateTime
   totalValue: Float!
   status: String!
+  establishmentName: String
   person: Person
   items: [OrderProduct!]
 }
@@ -138,6 +139,7 @@ type Query {
   orders: [Order!]!
   order(id: ID!): Order!
   orderDetail(id: ID!): Order!
+  ordersByDateRange(from: String!, to: String!): [Order!]!
   roles: [Role!]!
   dniTypes: [DniType!]!
 }
@@ -278,6 +280,7 @@ input UpdateStockInput {
 input CreateOrderInput {
   personId: ID!
   deliveryDate: DateTime
+  establishmentName: String
   items: [CreateOrderItemInput!]!
 }
 

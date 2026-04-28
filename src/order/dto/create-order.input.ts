@@ -9,6 +9,9 @@ export class CreateOrderInput {
   @Field({ nullable: true })
   deliveryDate?: Date;
 
+  @Field({ nullable: true })
+  establishmentName?: string;
+
   @Field(() => [CreateOrderItemInput])
   items: CreateOrderItemInput[];
 }

@@ -33,7 +33,19 @@ export class ProductService {
   }
 
   findAll(): Promise<Product[]> {
-    return this.buildProductQuery().getMany();
+    return this.productRepository
+      .createQueryBuilder('product')
+      .select([
+        'product.id',
+        'product.name',
+        'product.price',
+        'product.images',
+        'category.id',
+        'category.name',
+      ])
+      .leftJoin('product.category', 'category')
+      .orderBy('product.id', 'ASC')
+      .getMany();
   }
 
   async findOne(id: number): Promise<Product> {

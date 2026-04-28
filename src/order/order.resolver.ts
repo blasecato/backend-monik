@@ -22,6 +22,14 @@ export class OrderResolver {
     return this.orderService.findOneDetail(id);
   }
 
+  @Query(() => [Order], { name: 'ordersByDateRange' })
+  findByDateRange(
+    @Args('from', { type: () => String }) from: string,
+    @Args('to', { type: () => String }) to: string,
+  ): Promise<Order[]> {
+    return this.orderService.findByDateRange(from, to);
+  }
+
   @Mutation(() => Order)
   createOrder(@Args('input') input: CreateOrderInput): Promise<Order> {
     return this.orderService.create(input);

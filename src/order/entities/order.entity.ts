@@ -34,6 +34,10 @@ export class Order {
   @Column({ type: 'text', default: 'pending' })
   status: string;
 
+  @Field(() => String, { nullable: true })
+  @Column({ name: 'establishment_name', type: 'text', nullable: true })
+  establishmentName: string | null;
+
   @Field(() => Person, { nullable: true })
   @ManyToOne(() => Person)
   @JoinColumn({ name: 'person_id' })
