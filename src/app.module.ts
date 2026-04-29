@@ -1,5 +1,7 @@
-import { Module } from '@nestjs/common';
+import { Module, Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
@@ -14,7 +16,16 @@ import { OrderModule } from './order/order.module';
 import { RoleModule } from './role/role.module';
 import { DniTypeModule } from './dni-type/dni-type.module';
 
+@Injectable()
+class DbKeepAliveService implements OnApplicationBootstrap {
+  constructor(@InjectDataSource() private readonly ds: DataSource) {}
+  onApplicationBootstrap() {
+    setInterval(() => this.ds.query('SELECT 1').catch(() => {}), 4 * 60 * 1000);
+  }
+}
+
 @Module({
+  providers: [DbKeepAliveService],
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
