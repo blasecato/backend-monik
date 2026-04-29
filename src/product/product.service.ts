@@ -8,6 +8,8 @@ import { NutritionalTable } from './entities/nutritional-table.entity';
 import { CreateProductInput } from './dto/create-product.input';
 import { UpdateProductInput } from './dto/update-product.input';
 import { InventoryMovement } from '../inventory/entities/inventory-movement.entity';
+import { ProductsFilterInput } from './dto/products-filter.input';
+import { PaginatedProducts } from './dto/paginated-products';
 
 @Injectable()
 export class ProductService {
@@ -32,8 +34,12 @@ export class ProductService {
       .leftJoinAndSelect('product.nutritionalTable', 'nutritionalTable');
   }
 
-  findAll(): Promise<Product[]> {
-    return this.productRepository
+  async findAll(filter?: ProductsFilterInput): Promise<PaginatedProducts> {
+    const page = filter?.page ?? 1;
+    const limit = filter?.limit ?? 7;
+    const skip = (page - 1) * limit;
+
+    const qb = this.productRepository
       .createQueryBuilder('product')
       .select([
         'product.id',
@@ -44,8 +50,30 @@ export class ProductService {
         'category.name',
       ])
       .leftJoin('product.category', 'category')
-      .orderBy('product.id', 'ASC')
-      .getMany();
+      .orderBy('product.id', 'ASC');
+
+    if (filter?.name?.trim()) {
+      qb.andWhere('LOWER(product.name) LIKE LOWER(:name)', {
+        name: `%${filter.name.trim()}%`,
+      });
+    }
+
+    if (filter?.categoryIds?.length) {
+      qb.andWhere('category.id IN (:...categoryIds)', {
+        categoryIds: filter.categoryIds,
+      });
+    }
+
+    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      hasNextPage: page * limit < total,
+    };
   }
 
   findAllAdmin(): Promise<Product[]> {

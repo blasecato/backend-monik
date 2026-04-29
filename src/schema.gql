@@ -74,6 +74,15 @@ enum MovementType {
   SALIDA
 }
 
+type PaginatedProducts {
+  items: [Product!]!
+  total: Int!
+  page: Int!
+  limit: Int!
+  totalPages: Int!
+  hasNextPage: Boolean!
+}
+
 type DniType {
   id: ID!
   typeName: String!
@@ -127,7 +136,7 @@ type Order {
 }
 
 type Query {
-  products: [Product!]!
+  products(filter: ProductsFilterInput): PaginatedProducts!
   productsAdmin: [Product!]!
   product(id: ID!): Product!
   categories: [Category!]!
@@ -144,6 +153,13 @@ type Query {
   ordersByDateRange(from: String!, to: String!): [Order!]!
   roles: [Role!]!
   dniTypes: [DniType!]!
+}
+
+input ProductsFilterInput {
+  name: String
+  categoryIds: [Int!]
+  page: Int = 1
+  limit: Int = 7
 }
 
 type Mutation {

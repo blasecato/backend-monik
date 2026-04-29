@@ -3,14 +3,18 @@ import { ProductService } from './product.service';
 import { Product } from './entities/product.entity';
 import { CreateProductInput } from './dto/create-product.input';
 import { UpdateProductInput } from './dto/update-product.input';
+import { ProductsFilterInput } from './dto/products-filter.input';
+import { PaginatedProducts } from './dto/paginated-products';
 
 @Resolver(() => Product)
 export class ProductResolver {
   constructor(private readonly productService: ProductService) {}
 
-  @Query(() => [Product], { name: 'products' })
-  findAll(): Promise<Product[]> {
-    return this.productService.findAll();
+  @Query(() => PaginatedProducts, { name: 'products' })
+  findAll(
+    @Args('filter', { type: () => ProductsFilterInput, nullable: true }) filter?: ProductsFilterInput,
+  ): Promise<PaginatedProducts> {
+    return this.productService.findAll(filter);
   }
 
   @Query(() => [Product], { name: 'productsAdmin' })
