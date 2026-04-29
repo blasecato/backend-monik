@@ -13,6 +13,11 @@ export class ProductResolver {
     return this.productService.findAll();
   }
 
+  @Query(() => [Product], { name: 'productsAdmin' })
+  findAllAdmin(): Promise<Product[]> {
+    return this.productService.findAllAdmin();
+  }
+
   @Query(() => Product, { name: 'product' })
   findOne(@Args('id', { type: () => ID }) id: number): Promise<Product> {
     return this.productService.findOne(id);

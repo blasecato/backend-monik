@@ -48,6 +48,14 @@ export class ProductService {
       .getMany();
   }
 
+  findAllAdmin(): Promise<Product[]> {
+    return this.productRepository
+      .createQueryBuilder('product')
+      .select(['product.id', 'product.name', 'product.price', 'product.images'])
+      .orderBy('product.id', 'ASC')
+      .getMany();
+  }
+
   async findOne(id: number): Promise<Product> {
     const product = await this.buildProductQuery()
       .where('product.id = :id', { id })

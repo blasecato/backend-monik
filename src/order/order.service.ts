@@ -32,8 +32,21 @@ export class OrderService {
   }
 
   findAll(): Promise<Order[]> {
-    return this.buildOrderQuery().getMany();
+    return this.orderRepository
+      .createQueryBuilder('order')
+      .select([
+        'order.id',
+        'order.status',
+        'order.orderDate',
+        'order.establishmentName',
+        'person.id',
+        'person.name',
+      ])
+      .leftJoin('order.person', 'person')
+      .orderBy('order.orderDate', 'DESC')
+      .getMany();
   }
+
 
   async findOne(id: number): Promise<Order> {
     const order = await this.buildOrderQuery()
@@ -68,14 +81,20 @@ export class OrderService {
   async findOneDetail(id: number): Promise<Order> {
     const order = await this.orderRepository
       .createQueryBuilder('order')
-      .leftJoinAndSelect('order.person', 'person')
-      .leftJoinAndSelect('person.role', 'role')
-      .leftJoinAndSelect('person.dniType', 'dniType')
-      .leftJoinAndSelect('order.items', 'items')
-      .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('product.inventory', 'inventory')
-      .leftJoinAndSelect('product.nutritionalTable', 'nutritionalTable')
+      .select([
+        'order.id', 'order.status', 'order.totalValue', 'order.orderDate',
+        'order.deliveryDate', 'order.establishmentName',
+        'person.id', 'person.name', 'person.dni', 'person.username',
+        'role.id', 'role.roleName',
+        'dniType.id', 'dniType.typeName',
+        'items.quantity', 'items.unitPrice', 'items.totalPrice',
+        'product.id', 'product.name', 'product.images',
+      ])
+      .leftJoin('order.person', 'person')
+      .leftJoin('person.role', 'role')
+      .leftJoin('person.dniType', 'dniType')
+      .leftJoin('order.items', 'items')
+      .leftJoin('items.product', 'product')
       .where('order.id = :id', { id })
       .getOne();
     if (!order) throw new NotFoundException(`Orden #${id} no encontrada`);

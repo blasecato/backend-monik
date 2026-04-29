@@ -6,6 +6,7 @@ import {
   ManyToOne,
   JoinColumn,
   OneToOne,
+  Index,
 } from 'typeorm';
 import { Category } from '../../category/entities/category.entity';
 import { ProductInventory } from './product-inventory.entity';
@@ -47,6 +48,7 @@ export class Product {
   images: string[];
 
   @Field(() => Category, { nullable: true })
+  @Index()
   @ManyToOne(() => Category, (category) => category.products, { nullable: true })
   @JoinColumn({ name: 'category_id' })
   category: Category;

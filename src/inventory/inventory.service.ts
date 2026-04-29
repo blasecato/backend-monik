@@ -16,9 +16,18 @@ export class InventoryService {
   ) {}
 
   async findAllInventory(): Promise<InventorySummaryResponse> {
-    const inventories = await this.inventoryRepository.find({
-      relations: ['product', 'product.category'],
-    });
+    const inventories = await this.inventoryRepository
+      .createQueryBuilder('inventory')
+      .innerJoinAndSelect('inventory.product', 'product')
+      .select([
+        'inventory.id',
+        'inventory.currentStock',
+        'inventory.updatedAt',
+        'product.id',
+        'product.name',
+        'product.images',
+      ])
+      .getMany();
 
     return {
       inventories,

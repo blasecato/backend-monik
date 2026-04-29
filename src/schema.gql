@@ -127,6 +127,7 @@ type Order {
 
 type Query {
   products: [Product!]!
+  productsAdmin: [Product!]!
   product(id: ID!): Product!
   categories: [Category!]!
   category(id: ID!): Category!
