@@ -12,6 +12,9 @@ export class CreateOrderInput {
   @Field({ nullable: true })
   establishmentName?: string;
 
+  @Field({ nullable: true })
+  address?: string;
+
   @Field(() => [CreateOrderItemInput])
   items: CreateOrderItemInput[];
 }

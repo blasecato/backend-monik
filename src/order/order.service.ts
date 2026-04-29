@@ -83,7 +83,7 @@ export class OrderService {
       .createQueryBuilder('order')
       .select([
         'order.id', 'order.status', 'order.totalValue', 'order.orderDate',
-        'order.deliveryDate', 'order.establishmentName',
+        'order.deliveryDate', 'order.establishmentName', 'order.address',
         'person.id', 'person.name', 'person.dni', 'person.username',
         'role.id', 'role.roleName',
         'dniType.id', 'dniType.typeName',
@@ -114,7 +114,7 @@ export class OrderService {
     const products = await this.dataSource
       .getRepository(Product)
       .createQueryBuilder('product')
-      .leftJoinAndSelect('product.inventory', 'inventory')
+      .select(['product.id', 'product.price'])
       .whereInIds(productIds)
       .getMany();
 
@@ -126,17 +126,6 @@ export class OrderService {
 
     const productMap = new Map(products.map((p) => [Number(p.id), p]));
 
-    // Validar stock antes de abrir la transacción
-    for (const item of input.items) {
-      const product = productMap.get(Number(item.productId))!;
-      const stock = product.inventory?.currentStock ?? 0;
-      if (stock < item.quantity) {
-        throw new BadRequestException(
-          `Stock insuficiente para "${product.name}": disponible ${stock}, solicitado ${item.quantity}`,
-        );
-      }
-    }
-
     let savedOrderId: number;
 
     await this.dataSource.transaction(async (em: EntityManager) => {
@@ -146,6 +135,7 @@ export class OrderService {
         person,
         deliveryDate: input.deliveryDate,
         establishmentName: input.establishmentName ?? null,
+        address: input.address ?? null,
         totalValue: 0,
         status: 'pending',
       });
@@ -167,23 +157,6 @@ export class OrderService {
           totalPrice,
         });
         orderItems.push(orderProduct);
-
-        // Descontar stock
-        await em.decrement(
-          ProductInventory,
-          { product: { id: Number(product.id) } },
-          'currentStock',
-          item.quantity,
-        );
-
-        // Registrar movimiento de salida
-        const movement = em.create(InventoryMovement, {
-          type: MovementType.SALIDA,
-          quantity: item.quantity,
-          reason: `Venta - Orden #${savedOrder.id}`,
-          product: { id: Number(product.id) },
-        });
-        await em.save(InventoryMovement, movement);
       }
 
       await em.save(OrderProduct, orderItems);

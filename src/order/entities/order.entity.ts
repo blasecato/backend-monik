@@ -38,6 +38,10 @@ export class Order {
   @Column({ name: 'establishment_name', type: 'text', nullable: true })
   establishmentName: string | null;
 
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  address: string | null;
+
   @Field(() => Person, { nullable: true })
   @ManyToOne(() => Person)
   @JoinColumn({ name: 'person_id' })

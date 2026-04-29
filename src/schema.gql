@@ -121,6 +121,7 @@ type Order {
   totalValue: Float!
   status: String!
   establishmentName: String
+  address: String
   person: Person
   items: [OrderProduct!]
 }
@@ -282,6 +283,7 @@ input CreateOrderInput {
   personId: ID!
   deliveryDate: DateTime
   establishmentName: String
+  address: String
   items: [CreateOrderItemInput!]!
 }
 

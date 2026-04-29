@@ -3,6 +3,8 @@ import { config } from 'dotenv';
 
 config();
 
+const isCompiled = __filename.endsWith('.js');
+
 export default new DataSource({
   type: 'postgres',
   host: process.env.DB_HOST,
@@ -14,6 +16,6 @@ export default new DataSource({
     ssl: true,
     extra: { ssl: { rejectUnauthorized: false } },
   }),
-  entities: ['src/**/*.entity.ts'],
-  migrations: ['src/migrations/*.ts'],
+  entities: isCompiled ? ['dist/src/**/*.entity.js'] : ['src/**/*.entity.ts'],
+  migrations: isCompiled ? ['dist/src/migrations/*.js'] : ['src/migrations/*.ts'],
 });
