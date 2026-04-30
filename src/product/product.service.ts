@@ -36,7 +36,7 @@ export class ProductService {
 
   async findAll(filter?: ProductsFilterInput): Promise<PaginatedProducts> {
     const page = filter?.page ?? 1;
-    const limit = filter?.limit ?? 7;
+    const limit = filter?.limit ?? 15;
     const skip = (page - 1) * limit;
 
     const qb = this.productRepository
