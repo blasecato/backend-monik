@@ -37,6 +37,7 @@ export class OrderService {
       .select([
         'order.id',
         'order.status',
+        'order.isPaid',
         'order.orderDate',
         'order.establishmentName',
         'person.id',
@@ -82,7 +83,7 @@ export class OrderService {
     const order = await this.orderRepository
       .createQueryBuilder('order')
       .select([
-        'order.id', 'order.status', 'order.totalValue', 'order.orderDate',
+        'order.id', 'order.status', 'order.isPaid', 'order.totalValue', 'order.orderDate',
         'order.deliveryDate', 'order.establishmentName', 'order.address',
         'person.id', 'person.name', 'person.dni', 'person.username',
         'role.id', 'role.roleName',
@@ -223,6 +224,20 @@ export class OrderService {
 
     await this.orderRepository.update({ id }, { status: 'delivered' });
 
+    return this.findOne(id);
+  }
+
+  async markAsPaid(id: number): Promise<Order> {
+    const order = await this.orderRepository.findOne({ where: { id } });
+    if (!order) throw new NotFoundException(`Orden #${id} no encontrada`);
+    await this.orderRepository.update({ id }, { isPaid: true });
+    return this.findOne(id);
+  }
+
+  async markAsUnpaid(id: number): Promise<Order> {
+    const order = await this.orderRepository.findOne({ where: { id } });
+    if (!order) throw new NotFoundException(`Orden #${id} no encontrada`);
+    await this.orderRepository.update({ id }, { isPaid: false });
     return this.findOne(id);
   }
 

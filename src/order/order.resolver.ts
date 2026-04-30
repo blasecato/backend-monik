@@ -49,4 +49,14 @@ export class OrderResolver {
   cancelOrder(@Args('id', { type: () => ID }) id: number): Promise<Order> {
     return this.orderService.cancelOrder(id);
   }
+
+  @Mutation(() => Order)
+  markOrderAsPaid(@Args('id', { type: () => ID }) id: number): Promise<Order> {
+    return this.orderService.markAsPaid(id);
+  }
+
+  @Mutation(() => Order)
+  markOrderAsUnpaid(@Args('id', { type: () => ID }) id: number): Promise<Order> {
+    return this.orderService.markAsUnpaid(id);
+  }
 }

@@ -127,6 +127,7 @@ type Order {
   deliveryDate: DateTime
   totalValue: Float!
   status: String!
+  isPaid: Boolean!
   establishmentName: String
   address: String
   person: Person
@@ -178,6 +179,8 @@ type Mutation {
   reactivateOrder(id: ID!): Order!
   deliverOrder(id: ID!): Order!
   cancelOrder(id: ID!): Order!
+  markOrderAsPaid(id: ID!): Order!
+  markOrderAsUnpaid(id: ID!): Order!
 }
 
 input CreateProductInput {

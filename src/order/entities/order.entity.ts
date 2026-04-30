@@ -34,6 +34,10 @@ export class Order {
   @Column({ type: 'text', default: 'pending' })
   status: string;
 
+  @Field()
+  @Column({ name: 'is_paid', type: 'boolean', default: false })
+  isPaid: boolean;
+
   @Field(() => String, { nullable: true })
   @Column({ name: 'establishment_name', type: 'text', nullable: true })
   establishmentName: string | null;
