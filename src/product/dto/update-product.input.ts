@@ -18,12 +18,6 @@ export class UpdateProductInput {
   @Field({ nullable: true })
   description?: string;
 
-  @Field({ nullable: true })
-  product_origin?: string;
-
-  @Field({ nullable: true })
-  chef_tip?: string;
-
   @Field(() => [String], { nullable: true })
   images?: string[];
 

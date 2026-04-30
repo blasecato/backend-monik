@@ -35,14 +35,6 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Field({ nullable: true })
-  @Column({ type: 'text', nullable: true })
-  product_origin: string;
-
-  @Field({ nullable: true })
-  @Column({ type: 'text', nullable: true })
-  chef_tip: string;
-
   @Field(() => [String], { nullable: true })
   @Column({ type: 'jsonb', nullable: true })
   images: string[];

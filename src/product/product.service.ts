@@ -98,8 +98,6 @@ export class ProductService {
       weight: input.weight,
       price: input.price,
       description: input.description,
-      product_origin: input.product_origin,
-      chef_tip: input.chef_tip,
       images: input.images,
     });
 
@@ -136,8 +134,6 @@ export class ProductService {
     if (input.weight !== undefined) product.weight = input.weight;
     if (input.price !== undefined) product.price = input.price;
     if (input.description !== undefined) product.description = input.description;
-    if (input.product_origin !== undefined) product.product_origin = input.product_origin;
-    if (input.chef_tip !== undefined) product.chef_tip = input.chef_tip;
     if (input.images !== undefined) product.images = input.images;
 
     if (input.categoryId !== undefined) {

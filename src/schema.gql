@@ -52,8 +52,6 @@ type Product {
   weight: Float!
   price: Float!
   description: String
-  product_origin: String
-  chef_tip: String
   images: [String!]
   category: Category
   inventory: ProductInventory
@@ -187,8 +185,6 @@ input CreateProductInput {
   weight: Float!
   price: Float!
   description: String
-  product_origin: String
-  chef_tip: String
   images: [String!]
   categoryId: Int
   nutritionalTable: CreateNutritionalTableInput
@@ -223,8 +219,6 @@ input UpdateProductInput {
   weight: Float
   price: Float
   description: String
-  product_origin: String
-  chef_tip: String
   images: [String!]
   categoryId: Int
   nutritionalTable: UpdateNutritionalTableInput
