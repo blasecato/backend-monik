@@ -57,14 +57,14 @@ export class OrderService {
     return order;
   }
 
-  async findByDateRange(from: string, to: string): Promise<Order[]> {
+  async findByDateRange(from: string, to: string, sellerId?: number): Promise<Order[]> {
     const start = new Date(from);
     start.setHours(0, 0, 0, 0);
 
     const end = new Date(to);
     end.setHours(23, 59, 59, 999);
 
-    return this.orderRepository
+    const qb = this.orderRepository
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.person', 'person')
       .leftJoinAndSelect('person.role', 'role')
@@ -74,9 +74,13 @@ export class OrderService {
       .leftJoinAndSelect('product.category', 'category')
       .leftJoinAndSelect('product.inventory', 'inventory')
       .where('order.orderDate >= :start', { start })
-      .andWhere('order.orderDate <= :end', { end })
-      .orderBy('order.orderDate', 'DESC')
-      .getMany();
+      .andWhere('order.orderDate <= :end', { end });
+
+    if (sellerId) {
+      qb.andWhere('person.id = :sellerId', { sellerId });
+    }
+
+    return qb.orderBy('order.orderDate', 'DESC').getMany();
   }
 
   async findOneDetail(id: number): Promise<Order> {

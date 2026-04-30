@@ -13,6 +13,13 @@ export class PersonResolver {
     return this.personService.findAll();
   }
 
+  @Query(() => [Person], { name: 'personsByRole' })
+  findByRole(
+    @Args('roleKey', { type: () => String }) roleKey: string,
+  ): Promise<Person[]> {
+    return this.personService.findByRoleKey(roleKey);
+  }
+
   @Mutation(() => Person)
   createPerson(@Args('input') input: CreatePersonInput): Promise<Person> {
     return this.personService.create(input);

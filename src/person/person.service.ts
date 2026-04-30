@@ -30,6 +30,13 @@ export class PersonService {
     return this.buildPersonQuery().orderBy('person.id', 'ASC').getMany();
   }
 
+  findByRoleKey(roleKey: string): Promise<Person[]> {
+    return this.buildPersonQuery()
+      .where('role.key = :roleKey', { roleKey })
+      .orderBy('person.name', 'ASC')
+      .getMany();
+  }
+
   async findOne(id: number): Promise<Person> {
     const person = await this.buildPersonQuery()
       .where('person.id = :id', { id })

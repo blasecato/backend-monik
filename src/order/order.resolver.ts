@@ -26,8 +26,9 @@ export class OrderResolver {
   findByDateRange(
     @Args('from', { type: () => String }) from: string,
     @Args('to', { type: () => String }) to: string,
+    @Args('sellerId', { type: () => ID, nullable: true }) sellerId?: number,
   ): Promise<Order[]> {
-    return this.orderService.findByDateRange(from, to);
+    return this.orderService.findByDateRange(from, to, sellerId ? Number(sellerId) : undefined);
   }
 
   @Mutation(() => Order)

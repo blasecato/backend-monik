@@ -141,6 +141,7 @@ type Query {
   categories: [Category!]!
   category(id: ID!): Category!
   persons: [Person!]!
+  personsByRole(roleKey: String!): [Person!]!
   inventories: InventorySummaryResponse!
   inventory(id: ID!): ProductInventory!
   inventoryMovements: [InventoryMovement!]!
@@ -149,7 +150,7 @@ type Query {
   orders: [Order!]!
   order(id: ID!): Order!
   orderDetail(id: ID!): Order!
-  ordersByDateRange(from: String!, to: String!): [Order!]!
+  ordersByDateRange(from: String!, to: String!, sellerId: ID): [Order!]!
   roles: [Role!]!
   dniTypes: [DniType!]!
 }
