@@ -39,6 +39,10 @@ export class Product {
   @Column({ type: 'jsonb', nullable: true })
   images: string[];
 
+  @Field(() => Number, { nullable: true })
+  @Column({ name: 'sort_order', type: 'int', nullable: true, default: 0 })
+  sort_order: number;
+
   @Field(() => Category, { nullable: true })
   @Index()
   @ManyToOne(() => Category, (category) => category.products, { nullable: true })

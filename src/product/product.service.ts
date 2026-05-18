@@ -46,11 +46,12 @@ export class ProductService {
         'product.name',
         'product.price',
         'product.images',
+        'product.sort_order',
         'category.id',
         'category.name',
       ])
       .leftJoin('product.category', 'category')
-      .orderBy('product.id', 'ASC');
+      .orderBy('product.sort_order', 'ASC');
 
     if (filter?.name?.trim()) {
       qb.andWhere('LOWER(product.name) LIKE LOWER(:name)', {
@@ -79,8 +80,8 @@ export class ProductService {
   findAllAdmin(): Promise<Product[]> {
     return this.productRepository
       .createQueryBuilder('product')
-      .select(['product.id', 'product.name', 'product.price', 'product.images'])
-      .orderBy('product.id', 'ASC')
+      .select(['product.id', 'product.name', 'product.price', 'product.images', 'product.sort_order'])
+      .orderBy('product.sort_order', 'ASC')
       .getMany();
   }
 
