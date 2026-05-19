@@ -80,7 +80,8 @@ export class ProductService {
   findAllAdmin(): Promise<Product[]> {
     return this.productRepository
       .createQueryBuilder('product')
-      .select(['product.id', 'product.name', 'product.price', 'product.images', 'product.sort_order'])
+      .select(['product.id', 'product.name', 'product.price', 'product.images', 'product.sort_order', 'category.id', 'category.name'])
+      .leftJoin('product.category', 'category')
       .orderBy('product.sort_order', 'ASC')
       .getMany();
   }

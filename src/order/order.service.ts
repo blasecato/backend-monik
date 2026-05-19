@@ -80,7 +80,7 @@ export class OrderService {
       qb.andWhere('person.id = :sellerId', { sellerId });
     }
 
-    return qb.orderBy('order.orderDate', 'DESC').getMany();
+    return qb.orderBy('order.orderDate', 'DESC').addOrderBy('product.sort_order', 'ASC').getMany();
   }
 
   async findOneDetail(id: number): Promise<Order> {
@@ -93,7 +93,7 @@ export class OrderService {
         'role.id', 'role.roleName',
         'dniType.id', 'dniType.typeName',
         'items.quantity', 'items.unitPrice', 'items.totalPrice',
-        'product.id', 'product.name', 'product.images',
+        'product.id', 'product.name', 'product.images', 'product.sort_order',
       ])
       .leftJoin('order.person', 'person')
       .leftJoin('person.role', 'role')
@@ -101,6 +101,7 @@ export class OrderService {
       .leftJoin('order.items', 'items')
       .leftJoin('items.product', 'product')
       .where('order.id = :id', { id })
+      .addOrderBy('product.sort_order', 'ASC')
       .getOne();
     if (!order) throw new NotFoundException(`Orden #${id} no encontrada`);
     return order;
