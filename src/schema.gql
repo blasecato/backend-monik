@@ -53,6 +53,7 @@ type Product {
   price: Float!
   description: String
   images: [String!]
+  sort_order: Float
   category: Category
   inventory: ProductInventory
   nutritionalTable: NutritionalTable
@@ -150,6 +151,7 @@ type Query {
   orders: [Order!]!
   order(id: ID!): Order!
   orderDetail(id: ID!): Order!
+  ordersBySeller(sellerId: ID!): [Order!]!
   ordersByDateRange(from: String!, to: String!, sellerId: ID): [Order!]!
   roles: [Role!]!
   dniTypes: [DniType!]!

@@ -57,6 +57,36 @@ export class OrderService {
     return order;
   }
 
+  async findBySeller(sellerId: number): Promise<Order[]> {
+    return this.orderRepository
+      .createQueryBuilder('order')
+      .select([
+        'order.id',
+        'order.status',
+        'order.isPaid',
+        'order.totalValue',
+        'order.orderDate',
+        'order.deliveryDate',
+        'order.establishmentName',
+        'order.address',
+        'person.id',
+        'person.name',
+        'items.quantity',
+        'items.unitPrice',
+        'items.totalPrice',
+        'product.id',
+        'product.name',
+        'product.sort_order',
+      ])
+      .leftJoin('order.person', 'person')
+      .leftJoin('order.items', 'items')
+      .leftJoin('items.product', 'product')
+      .where('person.id = :sellerId', { sellerId })
+      .orderBy('order.orderDate', 'DESC')
+      .addOrderBy('product.sort_order', 'ASC')
+      .getMany();
+  }
+
   async findByDateRange(from: string, to: string, sellerId?: number): Promise<Order[]> {
     const start = new Date(from);
     start.setHours(0, 0, 0, 0);

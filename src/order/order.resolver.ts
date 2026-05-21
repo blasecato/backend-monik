@@ -22,6 +22,13 @@ export class OrderResolver {
     return this.orderService.findOneDetail(id);
   }
 
+  @Query(() => [Order], { name: 'ordersBySeller' })
+  findBySeller(
+    @Args('sellerId', { type: () => ID }) sellerId: number,
+  ): Promise<Order[]> {
+    return this.orderService.findBySeller(Number(sellerId));
+  }
+
   @Query(() => [Order], { name: 'ordersByDateRange' })
   findByDateRange(
     @Args('from', { type: () => String }) from: string,
