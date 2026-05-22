@@ -179,6 +179,7 @@ type Mutation {
   logout(refreshToken: String): Boolean!
   updateStock(input: UpdateStockInput!): ProductInventory!
   createOrder(input: CreateOrderInput!): Order!
+  updateOrder(input: UpdateOrderInput!): Order!
   reactivateOrder(id: ID!): Order!
   deliverOrder(id: ID!): Order!
   cancelOrder(id: ID!): Order!
@@ -306,4 +307,12 @@ input CreateOrderInput {
 input CreateOrderItemInput {
   productId: ID!
   quantity: Int!
+}
+
+input UpdateOrderInput {
+  id: ID!
+  deliveryDate: DateTime
+  establishmentName: String
+  address: String
+  items: [CreateOrderItemInput!]
 }

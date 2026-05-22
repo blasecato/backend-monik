@@ -8,6 +8,7 @@ import { ProductInventory } from '../product/entities/product-inventory.entity';
 import { Person } from '../person/entities/person.entity';
 import { InventoryMovement, MovementType } from '../inventory/entities/inventory-movement.entity';
 import { CreateOrderInput } from './dto/create-order.input';
+import { UpdateOrderInput } from './dto/update-order.input';
 
 @Injectable()
 export class OrderService {
@@ -203,6 +204,77 @@ export class OrderService {
     });
 
     return this.findOne(savedOrderId!);
+  }
+
+  async updateOrder(input: UpdateOrderInput): Promise<Order> {
+    const id = Number(input.id);
+    const order = await this.orderRepository.findOne({ where: { id } });
+    if (!order) throw new NotFoundException(`Orden #${id} no encontrada`);
+
+    if (order.status === 'cancelled') {
+      throw new BadRequestException(`No se puede modificar una orden cancelada`);
+    }
+    if (order.status === 'delivered') {
+      throw new BadRequestException(`No se puede modificar una orden ya entregada`);
+    }
+
+    await this.dataSource.transaction(async (em: EntityManager) => {
+      const fieldsToUpdate: Partial<Order> = {};
+
+      if (input.deliveryDate !== undefined) fieldsToUpdate.deliveryDate = input.deliveryDate;
+      if (input.establishmentName !== undefined) fieldsToUpdate.establishmentName = input.establishmentName ?? null;
+      if (input.address !== undefined) fieldsToUpdate.address = input.address ?? null;
+
+      if (input.items && input.items.length > 0) {
+        const productIds = input.items.map((i) => Number(i.productId));
+
+        const products = await em
+          .getRepository(Product)
+          .createQueryBuilder('product')
+          .select(['product.id', 'product.price'])
+          .whereInIds(productIds)
+          .getMany();
+
+        if (products.length !== productIds.length) {
+          const foundIds = products.map((p) => Number(p.id));
+          const missing = productIds.filter((pid) => !foundIds.includes(pid));
+          throw new NotFoundException(`Productos no encontrados: ${missing.join(', ')}`);
+        }
+
+        const productMap = new Map(products.map((p) => [Number(p.id), p]));
+
+        await em.delete(OrderProduct, { orderId: id });
+
+        let totalValue = 0;
+        const newItems: OrderProduct[] = [];
+
+        for (const item of input.items) {
+          const product = productMap.get(Number(item.productId))!;
+          const unitPrice = Number(product.price);
+          const totalPrice = unitPrice * item.quantity;
+          totalValue += totalPrice;
+
+          newItems.push(
+            em.create(OrderProduct, {
+              orderId: id,
+              productId: Number(product.id),
+              quantity: item.quantity,
+              unitPrice,
+              totalPrice,
+            }),
+          );
+        }
+
+        await em.save(OrderProduct, newItems);
+        fieldsToUpdate.totalValue = totalValue;
+      }
+
+      if (Object.keys(fieldsToUpdate).length > 0) {
+        await em.update(Order, { id }, fieldsToUpdate);
+      }
+    });
+
+    return this.findOneDetail(id);
   }
 
   async reactivateOrder(id: number): Promise<Order> {
