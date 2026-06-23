@@ -1,18 +1,21 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from '../dist/app.module';
+import { ExpressAdapter } from '@nestjs/platform-express';
+import express from 'express';
 import { json, urlencoded } from 'express';
-import serverlessExpress from '@vendia/serverless-express';
+import { AppModule } from '../dist/app.module';
 
-let server;
+const expressApp = express();
+let ready: Promise<void> | null = null;
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(
+    AppModule,
+    new ExpressAdapter(expressApp),
+  );
 
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ extended: true, limit: '10mb' }));
-
-  const expressApp = app.getHttpAdapter().getInstance();
 
   // CORS. ALLOWED_ORIGINS = lista separada por comas. Sin env => "*".
   const allowed = (process.env.ALLOWED_ORIGINS ?? '*')
@@ -31,11 +34,10 @@ async function bootstrap() {
     }
     res.setHeader(
       'Access-Control-Allow-Methods',
-      'GET,POST,PUT,PATCH,DELETE,OPTIONS'
+      'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     );
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-    // preflight
     if (req.method === 'OPTIONS') {
       return res.status(200).end();
     }
@@ -44,15 +46,12 @@ async function bootstrap() {
   });
 
   await app.init();
-
-  return serverlessExpress({
-    app: expressApp,
-  });
 }
 
-export default async function handler(req, res) {
-  if (!server) {
-    server = await bootstrap();
+export default async function handler(req: any, res: any) {
+  if (!ready) {
+    ready = bootstrap();
   }
-  return server(req, res);
+  await ready;
+  return expressApp(req, res);
 }
