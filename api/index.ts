@@ -14,19 +14,28 @@ async function bootstrap() {
 
   const expressApp = app.getHttpAdapter().getInstance();
 
-  // 🔥 CORS MANUAL (esto arregla tu error)
+  // CORS. ALLOWED_ORIGINS = lista separada por comas. Sin env => "*".
+  const allowed = (process.env.ALLOWED_ORIGINS ?? '*')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
   expressApp.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*'); // 👈 en producción cambia esto
+    const origin = req.headers.origin as string | undefined;
+    if (allowed.includes('*')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    } else if (origin && allowed.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
     res.setHeader(
       'Access-Control-Allow-Methods',
       'GET,POST,PUT,PATCH,DELETE,OPTIONS'
     );
-    res.setHeader(
-      'Access-Control-Allow-Headers',
-      'Content-Type, Authorization'
-    );
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-    // 👇 manejar preflight (CLAVE)
+    // preflight
     if (req.method === 'OPTIONS') {
       return res.status(200).end();
     }

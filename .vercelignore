@@ -1,0 +1,10 @@
+dist
+coverage
+.nyc_output
+test
+**/*.spec.ts
+.env
+.env.*
+.vscode
+.idea
+*.log
