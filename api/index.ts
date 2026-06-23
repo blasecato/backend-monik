@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from '../src/app.module';
+import { AppModule } from '../dist/app.module';
 import { json, urlencoded } from 'express';
 import serverlessExpress from '@vendia/serverless-express';
 

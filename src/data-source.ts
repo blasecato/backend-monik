@@ -16,6 +16,6 @@ export default new DataSource({
     ssl: true,
     extra: { ssl: { rejectUnauthorized: false } },
   }),
-  entities: isCompiled ? ['dist/src/**/*.entity.js'] : ['src/**/*.entity.ts'],
-  migrations: isCompiled ? ['dist/src/migrations/*.js'] : ['src/migrations/*.ts'],
+  entities: isCompiled ? ['dist/**/*.entity.js'] : ['src/**/*.entity.ts'],
+  migrations: isCompiled ? ['dist/migrations/*.js'] : ['src/migrations/*.ts'],
 });
