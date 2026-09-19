@@ -15,6 +15,9 @@ export class UpdateOrderInput {
   @Field({ nullable: true })
   address?: string;
 
+  @Field({ nullable: true })
+  notes?: string;
+
   @Field(() => [CreateOrderItemInput], { nullable: true })
   items?: CreateOrderItemInput[];
 }

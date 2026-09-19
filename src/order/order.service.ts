@@ -70,6 +70,7 @@ export class OrderService {
         'order.deliveryDate',
         'order.establishmentName',
         'order.address',
+        'order.notes',
         'person.id',
         'person.name',
         'items.quantity',
@@ -119,7 +120,7 @@ export class OrderService {
       .createQueryBuilder('order')
       .select([
         'order.id', 'order.status', 'order.isPaid', 'order.totalValue', 'order.orderDate',
-        'order.deliveryDate', 'order.establishmentName', 'order.address',
+        'order.deliveryDate', 'order.establishmentName', 'order.address', 'order.notes',
         'person.id', 'person.name', 'person.dni', 'person.username',
         'role.id', 'role.roleName',
         'dniType.id', 'dniType.typeName',
@@ -173,6 +174,7 @@ export class OrderService {
         deliveryDate: input.deliveryDate,
         establishmentName: input.establishmentName ?? null,
         address: input.address ?? null,
+        notes: input.notes ?? null,
         totalValue: 0,
         status: 'pending',
       });
@@ -224,6 +226,7 @@ export class OrderService {
       if (input.deliveryDate !== undefined) fieldsToUpdate.deliveryDate = input.deliveryDate;
       if (input.establishmentName !== undefined) fieldsToUpdate.establishmentName = input.establishmentName ?? null;
       if (input.address !== undefined) fieldsToUpdate.address = input.address ?? null;
+      if (input.notes !== undefined) fieldsToUpdate.notes = input.notes ?? null;
 
       if (input.items && input.items.length > 0) {
         const productIds = input.items.map((i) => Number(i.productId));
