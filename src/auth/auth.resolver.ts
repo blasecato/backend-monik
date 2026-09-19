@@ -26,7 +26,7 @@ export class AuthResolver {
   logout(
     @Args('refreshToken', { nullable: true }) refreshToken: string,
     @Context() context: any,
-  ): boolean {
+  ): Promise<boolean> {
     const accessToken = ExtractJwt.fromAuthHeaderAsBearerToken()(context.req) as string;
     return this.authService.logout(accessToken, refreshToken);
   }

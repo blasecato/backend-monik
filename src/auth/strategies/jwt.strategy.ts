@@ -9,6 +9,7 @@ import { AuthService } from '../auth.service';
 
 interface JwtPayload {
   sub: number;
+  jti?: string;
   username: string;
   name: string;
   dni: string;
@@ -33,9 +34,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(req: Request, payload: JwtPayload): Promise<Person> {
-    const token = ExtractJwt.fromAuthHeaderAsBearerToken()(req as any) as string;
-
-    if (this.authService.isTokenBlacklisted(token)) {
+    if (!(await this.authService.isSessionActive(payload.jti))) {
       throw new UnauthorizedException('Sesión cerrada, inicia sesión nuevamente');
     }
 

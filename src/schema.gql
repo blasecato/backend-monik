@@ -131,6 +131,7 @@ type Order {
   isPaid: Boolean!
   establishmentName: String
   address: String
+  notes: String
   person: Person
   items: [OrderProduct!]
 }
@@ -301,6 +302,7 @@ input CreateOrderInput {
   deliveryDate: DateTime
   establishmentName: String
   address: String
+  notes: String
   items: [CreateOrderItemInput!]!
 }
 
@@ -314,5 +316,6 @@ input UpdateOrderInput {
   deliveryDate: DateTime
   establishmentName: String
   address: String
+  notes: String
   items: [CreateOrderItemInput!]
 }

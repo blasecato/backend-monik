@@ -4,20 +4,22 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { Person } from '../person/entities/person.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { AuthSession } from './entities/auth-session.entity';
 import { LoginInput } from './dto/login.input';
 import { AuthResponse } from './dto/auth-response';
 
 @Injectable()
 export class AuthService {
-  private readonly blacklistedTokens = new Set<string>();
-
   constructor(
     @InjectRepository(Person)
     private readonly personRepository: Repository<Person>,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
+    @InjectRepository(AuthSession)
+    private readonly authSessionRepository: Repository<AuthSession>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
@@ -73,21 +75,34 @@ export class AuthService {
     return this.generateTokens(person);
   }
 
-  logout(accessToken: string, refreshToken?: string): boolean {
-    this.blacklistedTokens.add(accessToken);
+  /**
+   * Cierra la sesión del access token recibido: borra su fila en `auth_sessions`,
+   * con lo que el token deja de ser válido de inmediato en cualquier instancia.
+   */
+  async logout(accessToken: string, refreshToken?: string): Promise<boolean> {
+    const decoded = this.jwtService.decode(accessToken) as { jti?: string } | null;
+
+    if (decoded?.jti) {
+      await this.authSessionRepository.delete({ jti: decoded.jti });
+    }
 
     if (refreshToken) {
-      this.refreshTokenRepository.delete({ token: refreshToken });
+      await this.refreshTokenRepository.delete({ token: refreshToken });
     }
 
     return true;
   }
 
-  isTokenBlacklisted(token: string): boolean {
-    return this.blacklistedTokens.has(token);
+  /** Una sesión existe mientras su fila siga en `auth_sessions`. */
+  async isSessionActive(jti?: string): Promise<boolean> {
+    if (!jti) return false;
+    const count = await this.authSessionRepository.count({ where: { jti } });
+    return count > 0;
   }
 
   private async generateTokens(person: Person): Promise<AuthResponse> {
+    const jti = randomUUID();
+
     const payload = {
       sub: person.id,
       username: person.username,
@@ -97,7 +112,13 @@ export class AuthService {
       roleKey: person.role?.key ?? null,
     };
 
-    const accessToken = this.jwtService.sign(payload);
+    // Sin `expiresIn`: el access token no caduca. Su validez la controla
+    // la fila de `auth_sessions`, que el logout elimina.
+    const accessToken = this.jwtService.sign({ ...payload, jti });
+
+    await this.authSessionRepository.save(
+      this.authSessionRepository.create({ jti, personId: person.id }),
+    );
 
     const refreshSecret = this.configService.getOrThrow<string>('REFRESH_TOKEN_SECRET');
     const refreshExpiresIn = this.configService.getOrThrow<string>('REFRESH_TOKEN_EXPIRES_IN');
