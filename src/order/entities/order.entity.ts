@@ -7,9 +7,11 @@ import {
   OneToMany,
   JoinColumn,
   CreateDateColumn,
+  VirtualColumn,
 } from 'typeorm';
 import { Person } from '../../person/entities/person.entity';
 import { OrderProduct } from './order-product.entity';
+import { OrderPayment } from './order-payment.entity';
 
 @ObjectType()
 @Entity('orders')
@@ -34,9 +36,23 @@ export class Order {
   @Column({ type: 'text', default: 'pending' })
   status: string;
 
+  /**
+   * Bandera derivada: la mantiene el servicio al registrar o borrar abonos
+   * (`paidAmount >= totalValue`). Se conserva porque el panel, el Excel y los
+   * filtros existentes la consultan directamente.
+   */
   @Field()
   @Column({ name: 'is_paid', type: 'boolean', default: false })
   isPaid: boolean;
+
+  /** Suma de los abonos. Se resuelve en la misma consulta, sin N+1. */
+  @Field(() => Float)
+  @VirtualColumn({
+    type: 'numeric',
+    query: (alias) =>
+      `SELECT COALESCE(SUM("op_sum"."amount"), 0) FROM "order_payment" "op_sum" WHERE "op_sum"."order_id" = ${alias}.id`,
+  })
+  paidAmount: number;
 
   @Field(() => String, { nullable: true })
   @Column({ name: 'establishment_name', type: 'text', nullable: true })
@@ -58,4 +74,12 @@ export class Order {
   @Field(() => [OrderProduct], { nullable: true })
   @OneToMany(() => OrderProduct, (item) => item.order, { cascade: true })
   items: OrderProduct[];
+
+  @Field(() => [OrderPayment], { nullable: true })
+  @OneToMany(() => OrderPayment, (payment) => payment.order)
+  payments: OrderPayment[];
+
+  /** Saldo pendiente. Lo calcula el resolver; no existe en la tabla. */
+  @Field(() => Float)
+  balance: number;
 }

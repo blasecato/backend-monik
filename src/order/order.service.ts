@@ -3,12 +3,18 @@ import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Order } from './entities/order.entity';
 import { OrderProduct } from './entities/order-product.entity';
+import { OrderPayment } from './entities/order-payment.entity';
 import { Product } from '../product/entities/product.entity';
 import { ProductInventory } from '../product/entities/product-inventory.entity';
 import { Person } from '../person/entities/person.entity';
 import { InventoryMovement, MovementType } from '../inventory/entities/inventory-movement.entity';
 import { CreateOrderInput } from './dto/create-order.input';
 import { UpdateOrderInput } from './dto/update-order.input';
+import { RegisterOrderPaymentInput } from './dto/register-order-payment.input';
+import { OrderStatus } from './dto/order-status.enum';
+
+/** Tolerancia al comparar montos `numeric`, para no fallar por centavos. */
+const EPSILON = 0.009;
 
 @Injectable()
 export class OrderService {
@@ -58,8 +64,16 @@ export class OrderService {
     return order;
   }
 
-  async findBySeller(sellerId: number): Promise<Order[]> {
-    return this.orderRepository
+  findBySeller(sellerId: number): Promise<Order[]> {
+    return this.findDetailed(sellerId);
+  }
+
+  /**
+   * Listado completo con items y abonos. Sin `sellerId` devuelve todas las
+   * órdenes: es la vista que usan tanto el vendedor como el administrador.
+   */
+  async findDetailed(sellerId?: number): Promise<Order[]> {
+    const qb = this.orderRepository
       .createQueryBuilder('order')
       .select([
         'order.id',
@@ -73,19 +87,36 @@ export class OrderService {
         'order.notes',
         'person.id',
         'person.name',
+        'role.id',
+        'role.roleName',
         'items.quantity',
         'items.unitPrice',
         'items.totalPrice',
         'product.id',
         'product.name',
         'product.sort_order',
+        'payments.id',
+        'payments.amount',
+        'payments.note',
+        'payments.createdAt',
+        'createdBy.id',
+        'createdBy.name',
       ])
       .leftJoin('order.person', 'person')
+      .leftJoin('person.role', 'role')
       .leftJoin('order.items', 'items')
       .leftJoin('items.product', 'product')
-      .where('person.id = :sellerId', { sellerId })
+      .leftJoin('order.payments', 'payments')
+      .leftJoin('payments.createdBy', 'createdBy');
+
+    if (sellerId) {
+      qb.where('person.id = :sellerId', { sellerId });
+    }
+
+    return qb
       .orderBy('order.orderDate', 'DESC')
       .addOrderBy('product.sort_order', 'ASC')
+      .addOrderBy('payments.createdAt', 'ASC')
       .getMany();
   }
 
@@ -126,14 +157,19 @@ export class OrderService {
         'dniType.id', 'dniType.typeName',
         'items.quantity', 'items.unitPrice', 'items.totalPrice',
         'product.id', 'product.name', 'product.images', 'product.sort_order',
+        'payments.id', 'payments.amount', 'payments.note', 'payments.createdAt',
+        'createdBy.id', 'createdBy.name',
       ])
       .leftJoin('order.person', 'person')
       .leftJoin('person.role', 'role')
       .leftJoin('person.dniType', 'dniType')
       .leftJoin('order.items', 'items')
       .leftJoin('items.product', 'product')
+      .leftJoin('order.payments', 'payments')
+      .leftJoin('payments.createdBy', 'createdBy')
       .where('order.id = :id', { id })
       .addOrderBy('product.sort_order', 'ASC')
+      .addOrderBy('payments.createdAt', 'ASC')
       .getOne();
     if (!order) throw new NotFoundException(`Orden #${id} no encontrada`);
     return order;
@@ -337,18 +373,154 @@ export class OrderService {
     return this.findOne(id);
   }
 
-  async markAsPaid(id: number): Promise<Order> {
-    const order = await this.orderRepository.findOne({ where: { id } });
-    if (!order) throw new NotFoundException(`Orden #${id} no encontrada`);
-    await this.orderRepository.update({ id }, { isPaid: true });
-    return this.findOne(id);
+  /** Marca la orden como pagada registrando un abono por el saldo restante. */
+  async markAsPaid(id: number, actorId?: number): Promise<Order> {
+    const balance = await this.getBalance(id);
+    if (balance <= EPSILON) {
+      const order = await this.orderRepository.findOne({ where: { id } });
+      if (!order) throw new NotFoundException(`Orden #${id} no encontrada`);
+      await this.orderRepository.update({ id }, { isPaid: true });
+      return this.findOneDetail(id);
+    }
+
+    return this.registerPayment({ orderId: id, amount: balance }, actorId);
   }
 
+  /** Revierte el pago borrando todos los abonos de la orden. */
   async markAsUnpaid(id: number): Promise<Order> {
     const order = await this.orderRepository.findOne({ where: { id } });
     if (!order) throw new NotFoundException(`Orden #${id} no encontrada`);
-    await this.orderRepository.update({ id }, { isPaid: false });
-    return this.findOne(id);
+
+    await this.dataSource.transaction(async (em: EntityManager) => {
+      await em.delete(OrderPayment, { orderId: id });
+      await em.update(Order, { id }, { isPaid: false });
+    });
+
+    return this.findOneDetail(id);
+  }
+
+  /** Abono sobre una orden. Varios abonos pueden cubrirla. */
+  async registerPayment(input: RegisterOrderPaymentInput, actorId?: number): Promise<Order> {
+    const orderId = Number(input.orderId);
+    const amount = Number(input.amount);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('El abono debe ser mayor a cero');
+    }
+
+    await this.dataSource.transaction(async (em: EntityManager) => {
+      // Bloqueo de fila: dos abonos simultáneos no pueden dejar `is_paid`
+      // inconsistente con la suma real de la tabla de abonos.
+      const [locked] = await em.query(
+        'SELECT "id", "total_value", "status" FROM "orders" WHERE "id" = $1 FOR UPDATE',
+        [orderId],
+      );
+
+      if (!locked) throw new NotFoundException(`Orden #${orderId} no encontrada`);
+      if (locked.status === 'cancelled') {
+        throw new BadRequestException('No se pueden registrar abonos en una orden cancelada');
+      }
+
+      const total = Number(locked.total_value);
+      const paid = await this.sumPayments(em, orderId);
+      const balance = total - paid;
+
+      if (balance <= EPSILON) {
+        throw new BadRequestException('La orden ya está pagada por completo');
+      }
+      if (amount - balance > EPSILON) {
+        throw new BadRequestException(
+          `El abono (${amount}) supera el saldo pendiente (${balance})`,
+        );
+      }
+
+      await em.insert(OrderPayment, {
+        orderId,
+        amount,
+        note: input.note?.trim() || null,
+        createdBy: actorId ? ({ id: actorId } as Person) : null,
+      });
+
+      await em.update(Order, { id: orderId }, { isPaid: paid + amount >= total - EPSILON });
+    });
+
+    return this.findOneDetail(orderId);
+  }
+
+  /** Borra un abono mal registrado y recalcula la bandera de pago. */
+  async deletePayment(paymentId: number): Promise<Order> {
+    const payment = await this.dataSource
+      .getRepository(OrderPayment)
+      .findOne({ where: { id: paymentId } });
+
+    if (!payment) throw new NotFoundException(`Abono #${paymentId} no encontrado`);
+
+    const orderId = Number(payment.orderId);
+
+    await this.dataSource.transaction(async (em: EntityManager) => {
+      const [locked] = await em.query(
+        'SELECT "total_value" FROM "orders" WHERE "id" = $1 FOR UPDATE',
+        [orderId],
+      );
+      if (!locked) throw new NotFoundException(`Orden #${orderId} no encontrada`);
+
+      await em.delete(OrderPayment, { id: paymentId });
+
+      const paid = await this.sumPayments(em, orderId);
+      await em.update(
+        Order,
+        { id: orderId },
+        { isPaid: paid >= Number(locked.total_value) - EPSILON },
+      );
+    });
+
+    return this.findOneDetail(orderId);
+  }
+
+  /**
+   * Cambio de estado desde el modal. Delega en las operaciones existentes
+   * cuando el cambio mueve inventario (cancelar devuelve stock, reactivar lo
+   * vuelve a descontar); los demás saltos solo tocan la columna.
+   */
+  async updateStatus(id: number, status: OrderStatus): Promise<Order> {
+    const order = await this.orderRepository.findOne({ where: { id } });
+    if (!order) throw new NotFoundException(`Orden #${id} no encontrada`);
+
+    if (order.status === status) return this.findOneDetail(id);
+
+    if (status === OrderStatus.CANCELLED) {
+      await this.cancelOrder(id);
+      return this.findOneDetail(id);
+    }
+
+    if (order.status === OrderStatus.CANCELLED) {
+      // Reactivar vuelve a descontar stock; deja la orden en `pending`.
+      await this.reactivateOrder(id);
+      if (status === OrderStatus.DELIVERED) {
+        await this.orderRepository.update({ id }, { status: OrderStatus.DELIVERED });
+      }
+      return this.findOneDetail(id);
+    }
+
+    // pending <-> delivered: sin efecto sobre inventario.
+    await this.orderRepository.update({ id }, { status });
+    return this.findOneDetail(id);
+  }
+
+  /** Saldo pendiente de la orden. */
+  async getBalance(id: number): Promise<number> {
+    const order = await this.orderRepository.findOne({ where: { id } });
+    if (!order) throw new NotFoundException(`Orden #${id} no encontrada`);
+    const paid = await this.sumPayments(this.dataSource.manager, id);
+    return Number(order.totalValue) - paid;
+  }
+
+  private async sumPayments(em: EntityManager, orderId: number): Promise<number> {
+    const [row] = await em.query(
+      'SELECT COALESCE(SUM("amount"), 0) AS total FROM "order_payment" WHERE "order_id" = $1',
+      [orderId],
+    );
+    return Number(row.total);
   }
 
   async cancelOrder(id: number): Promise<Order> {
@@ -357,8 +529,12 @@ export class OrderService {
     if (order.status === 'cancelled') {
       throw new BadRequestException(`La orden #${id} ya está cancelada`);
     }
-    if (order.status === 'paid') {
-      throw new BadRequestException(`No se puede cancelar una orden pagada`);
+
+    const paid = await this.sumPayments(this.dataSource.manager, id);
+    if (paid > EPSILON) {
+      throw new BadRequestException(
+        `La orden #${id} tiene abonos registrados. Borra los abonos antes de cancelarla.`,
+      );
     }
 
     await this.dataSource.transaction(async (em: EntityManager) => {

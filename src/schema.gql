@@ -122,6 +122,14 @@ type OrderProduct {
   product: Product!
 }
 
+type OrderPayment {
+  id: ID!
+  amount: Float!
+  note: String
+  createdBy: Person
+  createdAt: DateTime!
+}
+
 type Order {
   id: ID!
   orderDate: DateTime!
@@ -129,11 +137,132 @@ type Order {
   totalValue: Float!
   status: String!
   isPaid: Boolean!
+  paidAmount: Float!
   establishmentName: String
   address: String
   notes: String
   person: Person
   items: [OrderProduct!]
+  payments: [OrderPayment!]
+  balance: Float!
+}
+
+type DashboardRange {
+  preset: DashboardPreset!
+  granularity: DashboardGranularity!
+  from: DateTime!
+  to: DateTime!
+  previousFrom: DateTime!
+  previousTo: DateTime!
+  timezone: String!
+}
+
+enum DashboardPreset {
+  TODAY
+  THIS_WEEK
+  THIS_MONTH
+  THIS_YEAR
+  LAST_7_DAYS
+  LAST_30_DAYS
+  LAST_12_MONTHS
+  CUSTOM
+}
+
+enum DashboardGranularity {
+  DAY
+  WEEK
+  MONTH
+  YEAR
+}
+
+type DashboardSummary {
+  revenue: Float!
+  orders: Int!
+  units: Int!
+  averageOrderValue: Float!
+  paidRevenue: Float!
+  unpaidRevenue: Float!
+  deliveredOrders: Int!
+  pendingOrders: Int!
+  cancelledOrders: Int!
+  activeCustomers: Int!
+  activeSellers: Int!
+  revenueChangePct: Float
+  ordersChangePct: Float
+  previousRevenue: Float!
+  previousOrders: Int!
+}
+
+type SalesBucket {
+  bucket: DateTime!
+  label: String!
+  revenue: Float!
+  orders: Int!
+  units: Int!
+}
+
+type StatusSlice {
+  status: String!
+  orders: Int!
+  revenue: Float!
+}
+
+type CategorySlice {
+  categoryId: ID
+  name: String!
+  revenue: Float!
+  units: Int!
+}
+
+type SellerStat {
+  personId: ID!
+  name: String!
+  role: String
+  orders: Int!
+  revenue: Float!
+  units: Int!
+  averageOrderValue: Float!
+  paidRevenue: Float!
+  customers: Int!
+  revenueShare: Float!
+}
+
+type CustomerStat {
+  key: String!
+  name: String!
+  kind: CustomerKind!
+  orders: Int!
+  revenue: Float!
+  units: Int!
+  averageOrderValue: Float!
+  lastOrderDate: DateTime!
+  revenueShare: Float!
+}
+
+enum CustomerKind {
+  REGISTERED
+  ESTABLISHMENT
+}
+
+type ProductStat {
+  productId: ID!
+  name: String!
+  category: String
+  image: String
+  units: Int!
+  revenue: Float!
+  orders: Int!
+}
+
+type DashboardStats {
+  range: DashboardRange!
+  summary: DashboardSummary!
+  salesSeries: [SalesBucket!]!
+  statusBreakdown: [StatusSlice!]!
+  categoryBreakdown: [CategorySlice!]!
+  topSellers: [SellerStat!]!
+  topCustomers: [CustomerStat!]!
+  topProducts: [ProductStat!]!
 }
 
 type Query {
@@ -150,12 +279,14 @@ type Query {
   inventoryMovementsByProduct(productId: ID!): [InventoryMovement!]!
   inventoryMovement(id: ID!): InventoryMovement!
   orders: [Order!]!
+  ordersDetailed(sellerId: ID): [Order!]!
   order(id: ID!): Order!
   orderDetail(id: ID!): Order!
   ordersBySeller(sellerId: ID!): [Order!]!
   ordersByDateRange(from: String!, to: String!, sellerId: ID): [Order!]!
   roles: [Role!]!
   dniTypes: [DniType!]!
+  dashboard(input: DashboardFilterInput): DashboardStats!
 }
 
 input ProductsFilterInput {
@@ -163,6 +294,15 @@ input ProductsFilterInput {
   categoryIds: [Int!]
   page: Int = 1
   limit: Int = 7
+}
+
+input DashboardFilterInput {
+  preset: DashboardPreset
+  from: String
+  to: String
+  granularity: DashboardGranularity
+  sellerId: ID
+  topLimit: Int
 }
 
 type Mutation {
@@ -184,8 +324,11 @@ type Mutation {
   reactivateOrder(id: ID!): Order!
   deliverOrder(id: ID!): Order!
   cancelOrder(id: ID!): Order!
+  updateOrderStatus(id: ID!, status: OrderStatus!): Order!
   markOrderAsPaid(id: ID!): Order!
   markOrderAsUnpaid(id: ID!): Order!
+  registerOrderPayment(input: RegisterOrderPaymentInput!): Order!
+  deleteOrderPayment(id: ID!): Order!
 }
 
 input CreateProductInput {
@@ -318,4 +461,16 @@ input UpdateOrderInput {
   address: String
   notes: String
   items: [CreateOrderItemInput!]
+}
+
+enum OrderStatus {
+  PENDING
+  DELIVERED
+  CANCELLED
+}
+
+input RegisterOrderPaymentInput {
+  orderId: ID!
+  amount: Float!
+  note: String
 }

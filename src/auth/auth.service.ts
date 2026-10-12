@@ -122,13 +122,20 @@ export class AuthService {
 
     const refreshSecret = this.configService.getOrThrow<string>('REFRESH_TOKEN_SECRET');
     const refreshExpiresIn = this.configService.getOrThrow<string>('REFRESH_TOKEN_EXPIRES_IN');
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: refreshSecret,
-      expiresIn: refreshExpiresIn as any,
-    });
+    // `jti` propio: sin él dos logins en el mismo segundo producen un JWT
+    // idéntico (mismo payload, mismo `iat`) y chocan con el UNIQUE de `token`.
+    const refreshToken = this.jwtService.sign(
+      { ...payload, jti: randomUUID() },
+      {
+        secret: refreshSecret,
+        expiresIn: refreshExpiresIn as any,
+      },
+    );
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    // `expiresAt` sale del propio token para no desincronizarse de
+    // REFRESH_TOKEN_EXPIRES_IN.
+    const { exp } = this.jwtService.decode(refreshToken) as { exp: number };
+    const expiresAt = new Date(exp * 1000);
 
     await this.refreshTokenRepository.save(
       this.refreshTokenRepository.create({
