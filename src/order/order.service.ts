@@ -45,6 +45,7 @@ export class OrderService {
         'order.id',
         'order.status',
         'order.isPaid',
+        'order.totalValue',
         'order.orderDate',
         'order.establishmentName',
         'person.id',
