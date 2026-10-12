@@ -102,13 +102,16 @@ export class OrderService {
         'payments.createdAt',
         'createdBy.id',
         'createdBy.name',
+        'createdByRole.id',
+        'createdByRole.roleName',
       ])
       .leftJoin('order.person', 'person')
       .leftJoin('person.role', 'role')
       .leftJoin('order.items', 'items')
       .leftJoin('items.product', 'product')
       .leftJoin('order.payments', 'payments')
-      .leftJoin('payments.createdBy', 'createdBy');
+      .leftJoin('payments.createdBy', 'createdBy')
+      .leftJoin('createdBy.role', 'createdByRole');
 
     if (sellerId) {
       qb.where('person.id = :sellerId', { sellerId });
@@ -160,6 +163,7 @@ export class OrderService {
         'product.id', 'product.name', 'product.images', 'product.sort_order',
         'payments.id', 'payments.amount', 'payments.note', 'payments.createdAt',
         'createdBy.id', 'createdBy.name',
+        'createdByRole.id', 'createdByRole.roleName',
       ])
       .leftJoin('order.person', 'person')
       .leftJoin('person.role', 'role')
@@ -168,6 +172,7 @@ export class OrderService {
       .leftJoin('items.product', 'product')
       .leftJoin('order.payments', 'payments')
       .leftJoin('payments.createdBy', 'createdBy')
+      .leftJoin('createdBy.role', 'createdByRole')
       .where('order.id = :id', { id })
       .addOrderBy('product.sort_order', 'ASC')
       .addOrderBy('payments.createdAt', 'ASC')
