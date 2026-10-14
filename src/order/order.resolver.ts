@@ -11,6 +11,7 @@ import { CreateOrderInput } from './dto/create-order.input';
 import { UpdateOrderInput } from './dto/update-order.input';
 import { RegisterOrderPaymentInput } from './dto/register-order-payment.input';
 import { OrderStatus } from './dto/order-status.enum';
+import { SellerAccount } from './dto/seller-account';
 
 const ADMIN = ['admin', 'administrador'];
 const SELLER = ['vendedor', 'seller'];
@@ -25,6 +26,16 @@ function isAdmin(user?: Person): boolean {
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class OrderResolver {
   constructor(private readonly orderService: OrderService) {}
+
+  @Query(() => SellerAccount, { name: 'sellerAccount' })
+  @Roles(...ADMIN)
+  sellerAccount(
+    @Args('sellerId', { type: () => ID }) sellerId: string,
+    @Args('from', { type: () => String }) from: string,
+    @Args('to', { type: () => String }) to: string,
+  ): Promise<SellerAccount> {
+    return this.orderService.sellerAccount(Number(sellerId), from, to);
+  }
 
   /** Suma de abonos. El valor ya viene en la consulta; si falta, se calcula. */
   @ResolveField(() => Float)

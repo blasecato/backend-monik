@@ -12,6 +12,8 @@ import { CreateOrderInput } from './dto/create-order.input';
 import { UpdateOrderInput } from './dto/update-order.input';
 import { RegisterOrderPaymentInput } from './dto/register-order-payment.input';
 import { OrderStatus } from './dto/order-status.enum';
+import { SellerAccount } from './dto/seller-account';
+import { sellerAccountDates } from './seller-account-dates';
 
 /** Tolerancia al comparar montos `numeric`, para no fallar por centavos. */
 const EPSILON = 0.009;
@@ -36,6 +38,47 @@ export class OrderService {
       .leftJoinAndSelect('product.category', 'category')
       .leftJoinAndSelect('product.inventory', 'inventory')
       .orderBy('order.orderDate', 'DESC');
+  }
+
+  async sellerAccount(sellerId: number, from: string, to: string): Promise<SellerAccount> {
+    const { start, end } = sellerAccountDates(from, to);
+    if (!Number.isSafeInteger(sellerId) || sellerId <= 0) {
+      throw new BadRequestException('Selecciona un vendedor válido');
+    }
+    const seller = await this.personRepository.findOne({
+      where: { id: sellerId }, relations: ['role'],
+    });
+    if (!seller) throw new NotFoundException('Vendedor no encontrado');
+    const roles = [seller.role?.key, seller.role?.roleName].map((role) => role?.toLowerCase());
+    if (!roles.some((role) => role === 'seller' || role === 'vendedor')) {
+      throw new BadRequestException('La persona seleccionada no es un vendedor');
+    }
+
+    // El autor del abono es quien recibió el dinero, aunque otro usuario creara el pedido.
+    const payments = await this.dataSource.getRepository(OrderPayment)
+      .createQueryBuilder('payment')
+      .innerJoinAndSelect('payment.order', 'order')
+      .where('payment.created_by = :sellerId', { sellerId })
+      .andWhere('payment.createdAt >= :start', { start })
+      .andWhere('payment.createdAt < :end', { end })
+      .orderBy('payment.createdAt', 'ASC')
+      .addOrderBy('payment.id', 'ASC')
+      .getMany();
+
+    return {
+      sellerId, sellerName: seller.name, from, to,
+      totalCollected: Math.round(payments.reduce((sum, payment) => sum + Number(payment.amount), 0) * 100) / 100,
+      orderCount: new Set(payments.map((payment) => String(payment.orderId))).size,
+      payments: payments.map((payment) => ({
+        id: payment.id,
+        orderId: payment.orderId,
+        collectedAt: payment.createdAt,
+        orderDate: payment.order.orderDate,
+        establishmentName: payment.order.establishmentName,
+        note: payment.note,
+        amount: Number(payment.amount),
+      })),
+    };
   }
 
   findAll(): Promise<Order[]> {

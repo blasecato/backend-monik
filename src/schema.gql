@@ -147,6 +147,26 @@ type Order {
   balance: Float!
 }
 
+type SellerAccountPayment {
+  id: ID!
+  orderId: ID!
+  collectedAt: DateTime!
+  orderDate: DateTime!
+  establishmentName: String
+  note: String
+  amount: Float!
+}
+
+type SellerAccount {
+  sellerId: ID!
+  sellerName: String!
+  from: String!
+  to: String!
+  totalCollected: Float!
+  orderCount: Int!
+  payments: [SellerAccountPayment!]!
+}
+
 type DashboardRange {
   preset: DashboardPreset!
   granularity: DashboardGranularity!
@@ -278,6 +298,7 @@ type Query {
   inventoryMovements: [InventoryMovement!]!
   inventoryMovementsByProduct(productId: ID!): [InventoryMovement!]!
   inventoryMovement(id: ID!): InventoryMovement!
+  sellerAccount(sellerId: ID!, from: String!, to: String!): SellerAccount!
   orders: [Order!]!
   ordersDetailed(sellerId: ID): [Order!]!
   order(id: ID!): Order!
