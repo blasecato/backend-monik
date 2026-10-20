@@ -21,6 +21,9 @@ export const CloudinaryProvider = {
       logger.warn(
         'Cloudinary no tiene credenciales completas: las subidas de imágenes fallarán hasta configurarlas.',
       );
+    } else {
+      // El cloud_name no es secreto y un valor equivocado solo se nota al subir.
+      logger.log(`Cloudinary configurado con cloud_name="${cloudName}"`);
     }
 
     return cloudinary.config({
