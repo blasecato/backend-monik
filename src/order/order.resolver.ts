@@ -1,5 +1,14 @@
 import { ForbiddenException, UseGuards } from '@nestjs/common';
-import { Args, Float, ID, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  Float,
+  ID,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -18,7 +27,9 @@ const SELLER = ['vendedor', 'seller'];
 const STAFF = [...ADMIN, ...SELLER];
 
 function isAdmin(user?: Person): boolean {
-  const held = [user?.role?.key, user?.role?.roleName].map((value) => value?.toLowerCase());
+  const held = [user?.role?.key, user?.role?.roleName].map((value) =>
+    value?.toLowerCase(),
+  );
   return held.some((role) => role && ADMIN.includes(role));
 }
 
@@ -43,7 +54,10 @@ export class OrderResolver {
     if (order.paidAmount !== undefined && order.paidAmount !== null) {
       return Number(order.paidAmount);
     }
-    return Number(order.totalValue) - (await this.orderService.getBalance(Number(order.id)));
+    return (
+      Number(order.totalValue) -
+      (await this.orderService.getBalance(Number(order.id)))
+    );
   }
 
   /** Saldo pendiente: total menos abonos. */
@@ -68,7 +82,9 @@ export class OrderResolver {
   findDetailed(
     @Args('sellerId', { type: () => ID, nullable: true }) sellerId?: number,
   ): Promise<Order[]> {
-    return this.orderService.findDetailed(sellerId ? Number(sellerId) : undefined);
+    return this.orderService.findDetailed(
+      sellerId ? Number(sellerId) : undefined,
+    );
   }
 
   @Query(() => Order, { name: 'order' })
@@ -99,7 +115,11 @@ export class OrderResolver {
     @Args('to', { type: () => String }) to: string,
     @Args('sellerId', { type: () => ID, nullable: true }) sellerId?: number,
   ): Promise<Order[]> {
-    return this.orderService.findByDateRange(from, to, sellerId ? Number(sellerId) : undefined);
+    return this.orderService.findByDateRange(
+      from,
+      to,
+      sellerId ? Number(sellerId) : undefined,
+    );
   }
 
   /** La crea cualquier usuario autenticado: el cliente también compra. */
@@ -141,7 +161,9 @@ export class OrderResolver {
     @CurrentUser() user?: Person,
   ): Promise<Order> {
     if (status === OrderStatus.CANCELLED && !isAdmin(user)) {
-      throw new ForbiddenException('Solo un administrador puede cancelar una orden');
+      throw new ForbiddenException(
+        'Solo un administrador puede cancelar una orden',
+      );
     }
     return this.orderService.updateStatus(Number(id), status);
   }
@@ -152,12 +174,17 @@ export class OrderResolver {
     @Args('id', { type: () => ID }) id: number,
     @CurrentUser() user?: Person,
   ): Promise<Order> {
-    return this.orderService.markAsPaid(Number(id), user ? Number(user.id) : undefined);
+    return this.orderService.markAsPaid(
+      Number(id),
+      user ? Number(user.id) : undefined,
+    );
   }
 
   @Mutation(() => Order)
   @Roles(...STAFF)
-  markOrderAsUnpaid(@Args('id', { type: () => ID }) id: number): Promise<Order> {
+  markOrderAsUnpaid(
+    @Args('id', { type: () => ID }) id: number,
+  ): Promise<Order> {
     return this.orderService.markAsUnpaid(Number(id));
   }
 
@@ -167,12 +194,17 @@ export class OrderResolver {
     @Args('input') input: RegisterOrderPaymentInput,
     @CurrentUser() user?: Person,
   ): Promise<Order> {
-    return this.orderService.registerPayment(input, user ? Number(user.id) : undefined);
+    return this.orderService.registerPayment(
+      input,
+      user ? Number(user.id) : undefined,
+    );
   }
 
   @Mutation(() => Order)
   @Roles(...STAFF)
-  deleteOrderPayment(@Args('id', { type: () => ID }) id: number): Promise<Order> {
+  deleteOrderPayment(
+    @Args('id', { type: () => ID }) id: number,
+  ): Promise<Order> {
     return this.orderService.deletePayment(Number(id));
   }
 }

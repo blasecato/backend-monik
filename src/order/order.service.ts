@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Order } from './entities/order.entity';
@@ -7,7 +11,10 @@ import { OrderPayment } from './entities/order-payment.entity';
 import { Product } from '../product/entities/product.entity';
 import { ProductInventory } from '../product/entities/product-inventory.entity';
 import { Person } from '../person/entities/person.entity';
-import { InventoryMovement, MovementType } from '../inventory/entities/inventory-movement.entity';
+import {
+  InventoryMovement,
+  MovementType,
+} from '../inventory/entities/inventory-movement.entity';
 import { CreateOrderInput } from './dto/create-order.input';
 import { UpdateOrderInput } from './dto/update-order.input';
 import { RegisterOrderPaymentInput } from './dto/register-order-payment.input';
@@ -29,8 +36,8 @@ export class OrderService {
     private readonly dataSource: DataSource,
   ) {}
 
-  private buildOrderQuery() {
-    return this.orderRepository
+  private buildOrderQuery(manager?: EntityManager) {
+    return (manager ? manager.getRepository(Order) : this.orderRepository)
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.person', 'person')
       .leftJoinAndSelect('order.items', 'items')
@@ -40,22 +47,32 @@ export class OrderService {
       .orderBy('order.orderDate', 'DESC');
   }
 
-  async sellerAccount(sellerId: number, from: string, to: string): Promise<SellerAccount> {
+  async sellerAccount(
+    sellerId: number,
+    from: string,
+    to: string,
+  ): Promise<SellerAccount> {
     const { start, end } = sellerAccountDates(from, to);
     if (!Number.isSafeInteger(sellerId) || sellerId <= 0) {
       throw new BadRequestException('Selecciona un vendedor válido');
     }
     const seller = await this.personRepository.findOne({
-      where: { id: sellerId }, relations: ['role'],
+      where: { id: sellerId },
+      relations: ['role'],
     });
     if (!seller) throw new NotFoundException('Vendedor no encontrado');
-    const roles = [seller.role?.key, seller.role?.roleName].map((role) => role?.toLowerCase());
+    const roles = [seller.role?.key, seller.role?.roleName].map((role) =>
+      role?.toLowerCase(),
+    );
     if (!roles.some((role) => role === 'seller' || role === 'vendedor')) {
-      throw new BadRequestException('La persona seleccionada no es un vendedor');
+      throw new BadRequestException(
+        'La persona seleccionada no es un vendedor',
+      );
     }
 
     // El autor del abono es quien recibió el dinero, aunque otro usuario creara el pedido.
-    const payments = await this.dataSource.getRepository(OrderPayment)
+    const payments = await this.dataSource
+      .getRepository(OrderPayment)
       .createQueryBuilder('payment')
       .innerJoinAndSelect('payment.order', 'order')
       .where('payment.created_by = :sellerId', { sellerId })
@@ -66,9 +83,17 @@ export class OrderService {
       .getMany();
 
     return {
-      sellerId, sellerName: seller.name, from, to,
-      totalCollected: Math.round(payments.reduce((sum, payment) => sum + Number(payment.amount), 0) * 100) / 100,
-      orderCount: new Set(payments.map((payment) => String(payment.orderId))).size,
+      sellerId,
+      sellerName: seller.name,
+      from,
+      to,
+      totalCollected:
+        Math.round(
+          payments.reduce((sum, payment) => sum + Number(payment.amount), 0) *
+            100,
+        ) / 100,
+      orderCount: new Set(payments.map((payment) => String(payment.orderId)))
+        .size,
       payments: payments.map((payment) => ({
         id: payment.id,
         orderId: payment.orderId,
@@ -99,9 +124,10 @@ export class OrderService {
       .getMany();
   }
 
-
-  async findOne(id: number): Promise<Order> {
-    const order = await this.buildOrderQuery()
+  async findOne(id: number, manager?: EntityManager): Promise<Order> {
+    // Dentro de una transacción ajena hay que leer con el mismo manager: la
+    // fila recién insertada todavía no es visible fuera de ella.
+    const order = await this.buildOrderQuery(manager)
       .where('order.id = :id', { id })
       .getOne();
     if (!order) throw new NotFoundException(`Orden #${id} no encontrada`);
@@ -167,7 +193,11 @@ export class OrderService {
       .getMany();
   }
 
-  async findByDateRange(from: string, to: string, sellerId?: number): Promise<Order[]> {
+  async findByDateRange(
+    from: string,
+    to: string,
+    sellerId?: number,
+  ): Promise<Order[]> {
     const start = new Date(from);
     start.setHours(0, 0, 0, 0);
 
@@ -190,23 +220,48 @@ export class OrderService {
       qb.andWhere('person.id = :sellerId', { sellerId });
     }
 
-    return qb.orderBy('order.orderDate', 'DESC').addOrderBy('product.sort_order', 'ASC').getMany();
+    return qb
+      .orderBy('order.orderDate', 'DESC')
+      .addOrderBy('product.sort_order', 'ASC')
+      .getMany();
   }
 
   async findOneDetail(id: number): Promise<Order> {
     const order = await this.orderRepository
       .createQueryBuilder('order')
       .select([
-        'order.id', 'order.status', 'order.isPaid', 'order.totalValue', 'order.orderDate',
-        'order.deliveryDate', 'order.establishmentName', 'order.address', 'order.notes',
-        'person.id', 'person.name', 'person.dni', 'person.username',
-        'role.id', 'role.roleName',
-        'dniType.id', 'dniType.typeName',
-        'items.quantity', 'items.unitPrice', 'items.totalPrice',
-        'product.id', 'product.name', 'product.images', 'product.sort_order',
-        'payments.id', 'payments.amount', 'payments.note', 'payments.createdAt',
-        'createdBy.id', 'createdBy.name',
-        'createdByRole.id', 'createdByRole.roleName',
+        'order.id',
+        'order.status',
+        'order.isPaid',
+        'order.totalValue',
+        'order.orderDate',
+        'order.deliveryDate',
+        'order.establishmentName',
+        'order.address',
+        'order.notes',
+        'person.id',
+        'person.name',
+        'person.dni',
+        'person.username',
+        'role.id',
+        'role.roleName',
+        'dniType.id',
+        'dniType.typeName',
+        'items.quantity',
+        'items.unitPrice',
+        'items.totalPrice',
+        'product.id',
+        'product.name',
+        'product.images',
+        'product.sort_order',
+        'payments.id',
+        'payments.amount',
+        'payments.note',
+        'payments.createdAt',
+        'createdBy.id',
+        'createdBy.name',
+        'createdByRole.id',
+        'createdByRole.roleName',
       ])
       .leftJoin('order.person', 'person')
       .leftJoin('person.role', 'role')
@@ -224,17 +279,28 @@ export class OrderService {
     return order;
   }
 
-  async create(input: CreateOrderInput): Promise<Order> {
+  /**
+   * `manager` permite crear la orden dentro de una transacción ajena (la
+   * conversión de un prepedido), para que orden y marca de conversión entren
+   * o fallen juntas.
+   */
+  async create(
+    input: CreateOrderInput,
+    manager?: EntityManager,
+  ): Promise<Order> {
     if (!input.items.length) {
       throw new BadRequestException('La orden debe tener al menos un producto');
     }
 
-    const person = await this.personRepository.findOne({ where: { id: input.personId } });
-    if (!person) throw new NotFoundException(`Persona #${input.personId} no encontrada`);
+    const person = await (manager ?? this.dataSource.manager)
+      .getRepository(Person)
+      .findOne({ where: { id: input.personId } });
+    if (!person)
+      throw new NotFoundException(`Persona #${input.personId} no encontrada`);
 
     const productIds = input.items.map((item) => Number(item.productId));
 
-    const products = await this.dataSource
+    const products = await (manager ?? this.dataSource.manager)
       .getRepository(Product)
       .createQueryBuilder('product')
       .select(['product.id', 'product.price'])
@@ -244,14 +310,16 @@ export class OrderService {
     if (products.length !== productIds.length) {
       const foundIds = products.map((p) => Number(p.id));
       const missing = productIds.filter((id) => !foundIds.includes(id));
-      throw new NotFoundException(`Productos no encontrados: ${missing.join(', ')}`);
+      throw new NotFoundException(
+        `Productos no encontrados: ${missing.join(', ')}`,
+      );
     }
 
     const productMap = new Map(products.map((p) => [Number(p.id), p]));
 
     let savedOrderId: number;
 
-    await this.dataSource.transaction(async (em: EntityManager) => {
+    const persist = async (em: EntityManager) => {
       let totalValue = 0;
 
       const order = em.create(Order, {
@@ -288,9 +356,12 @@ export class OrderService {
       await em.update(Order, { id: savedOrder.id }, { totalValue });
 
       savedOrderId = Number(savedOrder.id);
-    });
+    };
 
-    return this.findOne(savedOrderId!);
+    if (manager) await persist(manager);
+    else await this.dataSource.transaction(persist);
+
+    return this.findOne(savedOrderId!, manager);
   }
 
   async updateOrder(input: UpdateOrderInput): Promise<Order> {
@@ -299,18 +370,25 @@ export class OrderService {
     if (!order) throw new NotFoundException(`Orden #${id} no encontrada`);
 
     if (order.status === 'cancelled') {
-      throw new BadRequestException(`No se puede modificar una orden cancelada`);
+      throw new BadRequestException(
+        `No se puede modificar una orden cancelada`,
+      );
     }
     if (order.status === 'delivered') {
-      throw new BadRequestException(`No se puede modificar una orden ya entregada`);
+      throw new BadRequestException(
+        `No se puede modificar una orden ya entregada`,
+      );
     }
 
     await this.dataSource.transaction(async (em: EntityManager) => {
       const fieldsToUpdate: Partial<Order> = {};
 
-      if (input.deliveryDate !== undefined) fieldsToUpdate.deliveryDate = input.deliveryDate;
-      if (input.establishmentName !== undefined) fieldsToUpdate.establishmentName = input.establishmentName ?? null;
-      if (input.address !== undefined) fieldsToUpdate.address = input.address ?? null;
+      if (input.deliveryDate !== undefined)
+        fieldsToUpdate.deliveryDate = input.deliveryDate;
+      if (input.establishmentName !== undefined)
+        fieldsToUpdate.establishmentName = input.establishmentName ?? null;
+      if (input.address !== undefined)
+        fieldsToUpdate.address = input.address ?? null;
       if (input.notes !== undefined) fieldsToUpdate.notes = input.notes ?? null;
 
       if (input.items && input.items.length > 0) {
@@ -326,7 +404,9 @@ export class OrderService {
         if (products.length !== productIds.length) {
           const foundIds = products.map((p) => Number(p.id));
           const missing = productIds.filter((pid) => !foundIds.includes(pid));
-          throw new NotFoundException(`Productos no encontrados: ${missing.join(', ')}`);
+          throw new NotFoundException(
+            `Productos no encontrados: ${missing.join(', ')}`,
+          );
         }
 
         const productMap = new Map(products.map((p) => [Number(p.id), p]));
@@ -369,7 +449,9 @@ export class OrderService {
     const order = await this.findOne(id);
 
     if (order.status !== 'cancelled') {
-      throw new BadRequestException(`Solo se pueden reactivar órdenes canceladas`);
+      throw new BadRequestException(
+        `Solo se pueden reactivar órdenes canceladas`,
+      );
     }
 
     // Validar stock antes de abrir transacción
@@ -449,7 +531,10 @@ export class OrderService {
   }
 
   /** Abono sobre una orden. Varios abonos pueden cubrirla. */
-  async registerPayment(input: RegisterOrderPaymentInput, actorId?: number): Promise<Order> {
+  async registerPayment(
+    input: RegisterOrderPaymentInput,
+    actorId?: number,
+  ): Promise<Order> {
     const orderId = Number(input.orderId);
     const amount = Number(input.amount);
 
@@ -465,9 +550,12 @@ export class OrderService {
         [orderId],
       );
 
-      if (!locked) throw new NotFoundException(`Orden #${orderId} no encontrada`);
+      if (!locked)
+        throw new NotFoundException(`Orden #${orderId} no encontrada`);
       if (locked.status === 'cancelled') {
-        throw new BadRequestException('No se pueden registrar abonos en una orden cancelada');
+        throw new BadRequestException(
+          'No se pueden registrar abonos en una orden cancelada',
+        );
       }
 
       const total = Number(locked.total_value);
@@ -490,7 +578,11 @@ export class OrderService {
         createdBy: actorId ? ({ id: actorId } as Person) : null,
       });
 
-      await em.update(Order, { id: orderId }, { isPaid: paid + amount >= total - EPSILON });
+      await em.update(
+        Order,
+        { id: orderId },
+        { isPaid: paid + amount >= total - EPSILON },
+      );
     });
 
     return this.findOneDetail(orderId);
@@ -502,7 +594,8 @@ export class OrderService {
       .getRepository(OrderPayment)
       .findOne({ where: { id: paymentId } });
 
-    if (!payment) throw new NotFoundException(`Abono #${paymentId} no encontrado`);
+    if (!payment)
+      throw new NotFoundException(`Abono #${paymentId} no encontrado`);
 
     const orderId = Number(payment.orderId);
 
@@ -511,7 +604,8 @@ export class OrderService {
         'SELECT "total_value" FROM "orders" WHERE "id" = $1 FOR UPDATE',
         [orderId],
       );
-      if (!locked) throw new NotFoundException(`Orden #${orderId} no encontrada`);
+      if (!locked)
+        throw new NotFoundException(`Orden #${orderId} no encontrada`);
 
       await em.delete(OrderPayment, { id: paymentId });
 
@@ -546,7 +640,10 @@ export class OrderService {
       // Reactivar vuelve a descontar stock; deja la orden en `pending`.
       await this.reactivateOrder(id);
       if (status === OrderStatus.DELIVERED) {
-        await this.orderRepository.update({ id }, { status: OrderStatus.DELIVERED });
+        await this.orderRepository.update(
+          { id },
+          { status: OrderStatus.DELIVERED },
+        );
       }
       return this.findOneDetail(id);
     }
@@ -564,7 +661,10 @@ export class OrderService {
     return Number(order.totalValue) - paid;
   }
 
-  private async sumPayments(em: EntityManager, orderId: number): Promise<number> {
+  private async sumPayments(
+    em: EntityManager,
+    orderId: number,
+  ): Promise<number> {
     const [row] = await em.query(
       'SELECT COALESCE(SUM("amount"), 0) AS total FROM "order_payment" WHERE "order_id" = $1',
       [orderId],

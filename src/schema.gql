@@ -285,6 +285,34 @@ type DashboardStats {
   topProducts: [ProductStat!]!
 }
 
+type PreOrderProduct {
+  productId: ID!
+  existingQuantity: Int!
+  requestedQuantity: Int!
+  product: Product!
+}
+
+type PreOrder {
+  id: ID!
+  establishmentName: String!
+  address: String
+  notes: String
+  createdBy: Person!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  version: Int!
+  items: [PreOrderProduct!]!
+  convertedAt: DateTime
+  order: Order
+}
+
+type PaginatedPreOrders {
+  items: [PreOrder!]!
+  total: Int!
+  page: Int!
+  totalPages: Int!
+}
+
 type Query {
   products(filter: ProductsFilterInput): PaginatedProducts!
   productsAdmin: [Product!]!
@@ -308,6 +336,9 @@ type Query {
   roles: [Role!]!
   dniTypes: [DniType!]!
   dashboard(input: DashboardFilterInput): DashboardStats!
+  preOrderProducts: [Product!]!
+  preOrders(filter: PreOrdersFilterInput): PaginatedPreOrders!
+  preOrder(id: ID!): PreOrder!
 }
 
 input ProductsFilterInput {
@@ -324,6 +355,13 @@ input DashboardFilterInput {
   granularity: DashboardGranularity
   sellerId: ID
   topLimit: Int
+}
+
+input PreOrdersFilterInput {
+  page: Int = 1
+  limit: Int = 10
+  search: String
+  includeConverted: Boolean = false
 }
 
 type Mutation {
@@ -350,6 +388,9 @@ type Mutation {
   markOrderAsUnpaid(id: ID!): Order!
   registerOrderPayment(input: RegisterOrderPaymentInput!): Order!
   deleteOrderPayment(id: ID!): Order!
+  createPreOrder(input: CreatePreOrderInput!): PreOrder!
+  convertPreOrderToOrder(id: ID!): Order!
+  updatePreOrder(input: UpdatePreOrderInput!): PreOrder!
 }
 
 input CreateProductInput {
@@ -494,4 +535,26 @@ input RegisterOrderPaymentInput {
   orderId: ID!
   amount: Float!
   note: String
+}
+
+input CreatePreOrderInput {
+  establishmentName: String!
+  address: String
+  notes: String
+  items: [PreOrderItemInput!]!
+}
+
+input PreOrderItemInput {
+  productId: ID!
+  existingQuantity: Int = 0
+  requestedQuantity: Int = 0
+}
+
+input UpdatePreOrderInput {
+  establishmentName: String!
+  address: String
+  notes: String
+  items: [PreOrderItemInput!]!
+  id: ID!
+  version: Int!
 }

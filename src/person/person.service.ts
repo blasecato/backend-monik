@@ -1,6 +1,11 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Person } from './entities/person.entity';
 import { DniType } from './entities/dni-type.entity';
@@ -75,7 +80,20 @@ export class PersonService {
 
   async remove(id: number): Promise<boolean> {
     const person = await this.findOne(id);
-    await this.personRepository.remove(person);
+    try {
+      await this.personRepository.remove(person);
+    } catch (error) {
+      const databaseError =
+        error instanceof QueryFailedError
+          ? (error.driverError as { constraint?: string })
+          : null;
+      if (databaseError?.constraint === 'FK_pre_order_author') {
+        throw new BadRequestException(
+          'No puedes eliminar un usuario que tiene prepedidos registrados',
+        );
+      }
+      throw error;
+    }
     return true;
   }
 

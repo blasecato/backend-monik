@@ -16,6 +16,7 @@ import { OrderModule } from './order/order.module';
 import { RoleModule } from './role/role.module';
 import { DniTypeModule } from './dni-type/dni-type.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { PreOrderModule } from './pre-order/pre-order.module';
 
 @Injectable()
 class DbKeepAliveService implements OnApplicationBootstrap {
@@ -63,6 +64,7 @@ class DbKeepAliveService implements OnApplicationBootstrap {
     RoleModule,
     DniTypeModule,
     DashboardModule,
+    PreOrderModule,
   ],
 })
 export class AppModule { }

@@ -1,6 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
 import { Category } from '../category/entities/category.entity';
 import { ProductInventory } from './entities/product-inventory.entity';
@@ -24,6 +28,8 @@ export class ProductService {
     private readonly nutritionalTableRepository: Repository<NutritionalTable>,
     @InjectRepository(InventoryMovement)
     private readonly movementRepository: Repository<InventoryMovement>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   private buildProductQuery() {
@@ -164,21 +170,40 @@ export class ProductService {
   }
 
   async remove(id: number): Promise<boolean> {
-    const product = await this.findOne(id);
-
-    await this.movementRepository.delete({ product: { id: product.id } });
-
-    if (product.inventory) {
-      await this.inventoryRepository.remove(product.inventory);
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const product = await manager.getRepository(Product).findOne({
+          where: { id },
+          relations: ['inventory', 'nutritionalTable'],
+        });
+        if (!product)
+          throw new NotFoundException(`Producto #${id} no encontrado`);
+        await manager
+          .getRepository(InventoryMovement)
+          .delete({ product: { id: product.id } });
+        if (product.inventory)
+          await manager
+            .getRepository(ProductInventory)
+            .remove(product.inventory);
+        const nutritionalTable = product.nutritionalTable;
+        await manager.getRepository(Product).remove(product);
+        if (nutritionalTable)
+          await manager
+            .getRepository(NutritionalTable)
+            .remove(nutritionalTable);
+        return true;
+      });
+    } catch (error) {
+      const databaseError =
+        error instanceof QueryFailedError
+          ? (error.driverError as { code?: string })
+          : null;
+      if (databaseError?.code === '23503') {
+        throw new BadRequestException(
+          'No puedes eliminar un producto que tiene pedidos o prepedidos registrados',
+        );
+      }
+      throw error;
     }
-
-    const nutritionalTable = product.nutritionalTable;
-    await this.productRepository.remove(product);
-
-    if (nutritionalTable) {
-      await this.nutritionalTableRepository.remove(nutritionalTable);
-    }
-
-    return true;
   }
 }

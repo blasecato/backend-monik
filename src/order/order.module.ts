@@ -14,5 +14,6 @@ import { OrderResolver } from './order.resolver';
     AuthModule,
   ],
   providers: [OrderService, OrderResolver],
+  exports: [OrderService],
 })
 export class OrderModule {}
