@@ -1,6 +1,7 @@
 -- Ejecutar manualmente en el SQL Editor de la base de datos Neon del proyecto.
 -- No modifica pedidos, pagos ni inventario existentes.
 -- Mismo DDL que CreatePreOrders1792540800000.
+-- Para la versión actual, ejecutar después 2026-10-21-prepedidos-conversion-neon.sql.
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS "pre_order" (

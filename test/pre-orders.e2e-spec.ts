@@ -7,6 +7,8 @@ import {
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import type { Server } from 'node:http';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { PreOrderService } from '../src/pre-order/pre-order.service';
 import { PreOrder } from '../src/pre-order/entities/pre-order.entity';
 import type { PaginatedPreOrders } from '../src/pre-order/dto/paginated-pre-orders';
@@ -14,6 +16,7 @@ import { Person } from '../src/person/entities/person.entity';
 import { ProductService } from '../src/product/product.service';
 import { PersonService } from '../src/person/person.service';
 import { CreatePreOrders1792540800000 } from '../src/migrations/1792540800000-CreatePreOrders';
+import { AddPreOrderConversion1792800000000 } from '../src/migrations/1792800000000-AddPreOrderConversion';
 import {
   createPreOrderTestApp,
   preparePreOrderDatabase,
@@ -91,6 +94,69 @@ integration(
     });
     beforeEach(async () => {
       await database.query('TRUNCATE "pre_order" RESTART IDENTITY CASCADE');
+    });
+
+    it('upgrades the original Neon schema without losing preorders and is compatible with rerunning SQL and the migration', async () => {
+      const previous = await service.create(
+        input('Visita guardada antes del despliegue'),
+        seller,
+      );
+      await database.query(
+        'ALTER TABLE pre_order DROP COLUMN order_id, DROP COLUMN converted_at',
+      );
+      await expect(service.findAll(admin)).rejects.toMatchObject({
+        driverError: { code: '42703' },
+      });
+
+      const sql = readFileSync(
+        join(__dirname, '../sql/2026-10-21-prepedidos-conversion-neon.sql'),
+        'utf8',
+      );
+      await database.query(sql);
+      await database.query(sql);
+      const runner = database.createQueryRunner();
+      try {
+        await new AddPreOrderConversion1792800000000().up(runner);
+      } finally {
+        await runner.release();
+      }
+
+      const restored = await service.findOne(previous.id, seller);
+      expect(restored).toMatchObject({
+        establishmentName: previous.establishmentName,
+        createdById: previous.createdById,
+        version: previous.version,
+        convertedAt: null,
+        orderId: null,
+        items: previous.items,
+      });
+      expect(restored.createdAt).toEqual(previous.createdAt);
+      const list = await gql<{
+        preOrders: { total: number; items: { id: string }[] };
+      }>('{ preOrders { total items { id } } }', {}, tokens.administrador);
+      expect(list.body.errors).toBeUndefined();
+      expect(list.body.data.preOrders).toEqual({
+        total: 1,
+        items: [{ id: previous.id }],
+      });
+      const created = await gql<{ createPreOrder: PreOrder }>(
+        createMutation,
+        { input: input() },
+        tokens['vendedor-uno'],
+      );
+      expect(created.body.errors).toBeUndefined();
+      expect(created.body.data.createPreOrder.items).toHaveLength(3);
+      await expect(
+        database.query('UPDATE pre_order SET order_id = 999999 WHERE id = $1', [
+          previous.id,
+        ]),
+      ).rejects.toMatchObject({
+        driverError: { code: '23503', constraint: 'FK_pre_order_order' },
+      });
+      const indexes = await database.query<{ indexname: string }[]>(
+        "SELECT indexname FROM pg_indexes WHERE tablename = 'pre_order' AND indexname IN ('UQ_pre_order_order', 'IDX_pre_order_pending')",
+      );
+      expect(indexes).toHaveLength(2);
     });
 
     it.each(['pre_order', 'pre_order_product'])(

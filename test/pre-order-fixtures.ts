@@ -79,6 +79,12 @@ export async function preparePreOrderDatabase(url: string) {
       ),
     );
     await database.query(
+      readFileSync(
+        join(__dirname, '../sql/2026-10-21-prepedidos-conversion-neon.sql'),
+        'utf8',
+      ),
+    );
+    await database.query(
       'TRUNCATE "pre_order", "product", "category", "person", "role" RESTART IDENTITY CASCADE',
     );
     await database.getRepository(Role).insert([

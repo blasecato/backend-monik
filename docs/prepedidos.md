@@ -8,11 +8,18 @@ no registra pagos y no modifica el inventario del almacén.
 
 ## 1. Base de datos en Neon
 
-Selecciona la misma base de datos y rama de Neon que usa el backend. Copia y
-ejecuta completo `sql/2026-10-21-prepedidos-neon.sql` en su SQL Editor. El script
-crea únicamente las dos tablas e índices nuevos dentro de una transacción.
-Es compatible con volver a ejecutarlo y con la migración de TypeORM
-`CreatePreOrders1792540800000`. No se ha ejecutado automáticamente en Neon.
+Selecciona la misma base de datos y rama de Neon que usa el backend. En una
+instalación nueva, ejecuta completos y en este orden los dos archivos en el SQL Editor:
+
+1. `sql/2026-10-21-prepedidos-neon.sql`: tablas e índices de la visita y sus productos,
+   equivalente a `CreatePreOrders1792540800000`.
+2. `sql/2026-10-21-prepedidos-conversion-neon.sql`: columnas `converted_at` y `order_id`,
+   relación con `orders` e índices, equivalente a `AddPreOrderConversion1792800000000`.
+
+Si ya existen las tablas de prepedidos, aplica únicamente el segundo archivo.
+Ambos scripts admiten volver a ejecutarlos y conservan los registros existentes.
+Los prepedidos anteriores quedan pendientes de conversión, con las dos columnas
+nuevas en `NULL`. Los scripts no se ejecutan automáticamente en Neon al desplegar.
 
 Las claves foráneas usan los `bigint` de `person.id` y `product.id`. Se impide
 borrar un usuario o producto que tenga prepedidos para conservar su historial.
@@ -80,6 +87,30 @@ PRE_ORDER_TEST_DATABASE_URL=postgresql://USUARIO@127.0.0.1:PUERTO/monik_preorder
 
 Se verifican ceros, cantidades manuales, permisos, autor, claves foráneas,
 rechazo de entradas inválidas, concurrencia y rollback de cabecera y detalle.
+También se reproduce una base con el esquema original, se aplica el SQL de
+conversión y se verifica que conserva las visitas y recupera listado y guardado.
+
+## Error: `column pre.order_id does not exist` o falta `converted_at`
+
+El backend actualizado necesita la migración de conversión de prepedidos, pero
+la base conserva la estructura inicial. `CREATE TABLE IF NOT EXISTS` no añade
+columnas a tablas que ya existen, por lo que volver a ejecutar únicamente el
+primer SQL no basta. Ejecuta completo
+`sql/2026-10-21-prepedidos-conversion-neon.sql` en la base y rama que usa el backend.
+
+Comprueba el resultado en el SQL Editor:
+
+```sql
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'pre_order'
+  AND column_name IN ('converted_at', 'order_id')
+ORDER BY column_name;
+```
+
+Deben aparecer `converted_at` (`timestamp with time zone`) y `order_id` (`bigint`),
+ambas con `is_nullable = YES`. Después, recarga el listado y vuelve a guardar.
+El backend desplegado reconoce las columnas nuevas sin otro despliegue.
 
 ## Error: `relation "pre_order" does not exist`
 
